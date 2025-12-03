@@ -25,7 +25,8 @@ const EditorLayout = () => {
     cameraPosition: 'bottom-left',
     cameraShape: 'rectangle',
     cameraBorderRadius: 12,
-    cameraShadow: 20
+    cameraShadow: 20,
+    backgroundScale: 100
   });
 
   const screenRef = useRef(null);

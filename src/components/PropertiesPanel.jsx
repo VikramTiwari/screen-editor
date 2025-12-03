@@ -1,8 +1,25 @@
 import React from 'react';
+import BackgroundPicker, { SOLIDS } from './BackgroundPicker';
 
 const PropertiesPanel = ({ settings, onSettingsChange }) => {
   const handleChange = (key, value) => {
     onSettingsChange({ ...settings, [key]: value });
+  };
+
+  const getPatternColor = (svgString) => {
+    const match = svgString.match(/fill='%23([0-9A-Fa-f]{6})'/);
+    return match ? `#${match[1]}` : '#000000';
+  };
+
+  const setPatternColor = (svgString, color) => {
+    // Ensure color is hex and remove # for the URL encoding if needed, 
+    // but here we are replacing %23... so we need to encode the # as %23
+    // Actually the regex matches %23 followed by hex.
+    // The input color is like #RRGGBB.
+    // We need to replace `fill='%23......'` with `fill='%23(new color without #)'`
+    
+    const cleanColor = color.replace('#', '');
+    return svgString.replace(/fill='%23[0-9A-Fa-f]{6}'/, `fill='%23${cleanColor}'`);
   };
 
   return (
@@ -10,14 +27,44 @@ const PropertiesPanel = ({ settings, onSettingsChange }) => {
       <div>
         <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">Background</h3>
         <div className="space-y-3">
-            <div className="flex items-center justify-between">
-                <label className="text-sm text-neutral-300">Color</label>
-                <input 
-                    type="color" 
+            <div className="flex flex-col gap-2">
+                <BackgroundPicker 
                     value={settings.backgroundColor}
-                    onChange={(e) => handleChange('backgroundColor', e.target.value)}
-                    className="w-8 h-8 rounded cursor-pointer bg-transparent border-none"
+                    onChange={(value) => handleChange('backgroundColor', value)}
                 />
+                {settings.backgroundColor.includes('data:image/svg+xml') && (
+                    <div className="space-y-3 mt-2">
+                        <div className="flex items-center justify-between">
+                            <label className="text-sm text-neutral-300">Pattern Scale</label>
+                            <input 
+                                type="range" 
+                                min="10" 
+                                max="500" 
+                                value={settings.backgroundScale || 100}
+                                onChange={(e) => handleChange('backgroundScale', parseInt(e.target.value))}
+                                className="w-32 accent-blue-500"
+                            />
+                        </div>
+                        
+                        <div>
+                            <label className="text-sm text-neutral-300 mb-2 block">Pattern Color</label>
+                            <div className="grid grid-cols-7 gap-1.5">
+                                {SOLIDS.map((color) => (
+                                    <button
+                                        key={color}
+                                        onClick={() => handleChange('backgroundColor', setPatternColor(settings.backgroundColor, color))}
+                                        className={`w-5 h-5 rounded-full border border-neutral-700 hover:scale-110 transition-transform ${
+                                            getPatternColor(settings.backgroundColor).toLowerCase() === color.toLowerCase() 
+                                                ? 'ring-2 ring-white ring-offset-1 ring-offset-neutral-950' 
+                                                : ''
+                                        }`}
+                                        style={{ backgroundColor: color }}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
             <div className="flex items-center justify-between">
                 <label className="text-sm text-neutral-300">Padding</label>

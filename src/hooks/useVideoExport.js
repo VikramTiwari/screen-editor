@@ -34,6 +34,25 @@ export const useVideoExport = () => {
     // Scale Factor (Design is based on ~1080p logic, so we scale up for 8K)
     const scaleFactor = 4; 
 
+    // Preload Background Image if needed
+    let backgroundImage = null;
+    if (settings.backgroundColor.startsWith('url')) {
+        const url = settings.backgroundColor.match(/url\(['"]?(.*?)['"]?\)/)[1];
+        if (url) {
+            try {
+                backgroundImage = await new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.crossOrigin = "anonymous"; // Important for canvas export
+                    img.onload = () => resolve(img);
+                    img.onerror = reject;
+                    img.src = url;
+                });
+            } catch (e) {
+                console.error("Failed to load background image", e);
+            }
+        }
+    }
+
     // 2. Setup Stream & Recorder
     const canvasStream = canvas.captureStream(60); // 60 FPS for smoother quality
     
@@ -113,9 +132,81 @@ export const useVideoExport = () => {
 
         // --- DRAWING LOGIC ---
         
+        // --- DRAWING LOGIC ---
+        
         // Background
-        ctx.fillStyle = settings.backgroundColor;
-        ctx.fillRect(0, 0, width, height);
+        if (settings.backgroundColor.startsWith('url')) {
+            // Image or Pattern Background
+            if (backgroundImage) {
+                const isPattern = settings.backgroundColor.includes('data:image/svg+xml');
+                
+                if (isPattern) {
+                    // Pattern Logic
+                    const pattern = ctx.createPattern(backgroundImage, 'repeat');
+                    
+                    // Scale Pattern
+                    const matrix = new DOMMatrix();
+                    // We need to scale the pattern. 
+                    // settings.backgroundScale is in pixels (e.g., 100px).
+                    // The original SVG size is usually small (e.g., 20px or 40px).
+                    // We need to determine the scale factor.
+                    // However, background-size in CSS sets the width of the image.
+                    // So scale = settings.backgroundScale / backgroundImage.width
+                    
+                    // Note: We need to account for the export scaleFactor (4x for 8K)
+                    // If backgroundScale is 100px on screen, it should be 400px on 8K canvas.
+                    
+                    const scale = (settings.backgroundScale * scaleFactor) / backgroundImage.width;
+                    
+                    matrix.scaleSelf(scale, scale);
+                    pattern.setTransform(matrix);
+                    
+                    ctx.fillStyle = pattern;
+                    ctx.fillRect(0, 0, width, height);
+                } else {
+                    // Cover Image Logic
+                    const imgRatio = backgroundImage.width / backgroundImage.height;
+                    const canvasRatio = width / height;
+                    let drawW, drawH, drawX, drawY;
+
+                    if (imgRatio > canvasRatio) {
+                        drawH = height;
+                        drawW = height * imgRatio;
+                        drawY = 0;
+                        drawX = (width - drawW) / 2;
+                    } else {
+                        drawW = width;
+                        drawH = width / imgRatio;
+                        drawX = 0;
+                        drawY = (height - drawH) / 2;
+                    }
+                    ctx.drawImage(backgroundImage, drawX, drawY, drawW, drawH);
+                }
+            } else {
+                // Fallback
+                ctx.fillStyle = '#171717';
+                ctx.fillRect(0, 0, width, height);
+            }
+        } else if (settings.backgroundColor.startsWith('linear-gradient')) {
+            // Gradient Background
+            // Parse simple 2-stop gradient: linear-gradient(135deg, COLOR1 0%, COLOR2 100%)
+            const colors = settings.backgroundColor.match(/#[a-fA-F0-9]{6}/g);
+            if (colors && colors.length >= 2) {
+                const gradient = ctx.createLinearGradient(0, 0, width, height);
+                gradient.addColorStop(0, colors[0]);
+                gradient.addColorStop(1, colors[1]);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, width, height);
+            } else {
+                // Fallback if parse fails
+                ctx.fillStyle = '#171717';
+                ctx.fillRect(0, 0, width, height);
+            }
+        } else {
+            // Solid Color
+            ctx.fillStyle = settings.backgroundColor;
+            ctx.fillRect(0, 0, width, height);
+        }
 
         // Apply Scale to Settings
         const sPadding = settings.padding * scaleFactor;

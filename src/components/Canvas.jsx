@@ -24,10 +24,17 @@ const Canvas = forwardRef(({
       }
   };
 
-  return (
+    const isPattern = settings.backgroundColor.includes('data:image/svg+xml');
+
+    return (
     <div 
         className="flex-1 bg-neutral-900 overflow-hidden flex items-center justify-center p-8"
-        style={{ backgroundColor: settings.backgroundColor }}
+        style={{ 
+            background: settings.backgroundColor, 
+            backgroundSize: isPattern ? `${settings.backgroundScale}px` : 'cover', 
+            backgroundPosition: 'center center',
+            backgroundRepeat: isPattern ? 'repeat' : 'no-repeat'
+        }}
     >
       <div 
         className="relative transition-all duration-200 ease-out"
