@@ -6,6 +6,7 @@ import Canvas from './Canvas';
 import InteractionVisualizer from './InteractionVisualizer';
 import PropertiesPanel from './PropertiesPanel';
 import { useVideoExport } from '../hooks/useVideoExport';
+import { getRandomBackground } from '../utils/backgrounds';
 
 const EditorLayout = () => {
   const { camera, screen, audio, interactions, loading, error } = useRecordingLoader();
@@ -16,7 +17,7 @@ const EditorLayout = () => {
   
   // Canvas Settings
   const [settings, setSettings] = useState({
-    backgroundColor: '#171717', // neutral-900
+    ...getRandomBackground(),
     padding: 40,
     borderRadius: 12,
     shadow: 20,
@@ -26,7 +27,6 @@ const EditorLayout = () => {
     cameraShape: 'rectangle',
     cameraBorderRadius: 12,
     cameraShadow: 20,
-    backgroundScale: 100
   });
 
   const screenRef = useRef(null);

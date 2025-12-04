@@ -1,7 +1,11 @@
-import React from 'react';
-import BackgroundPicker, { SOLIDS } from './BackgroundPicker';
+import React from 'react'; // Added React import
+import { Shuffle } from 'lucide-react';
+import BackgroundPicker from './BackgroundPicker';
+import { getRandomBackground, SOLIDS } from '../utils/backgrounds';
 
 const PropertiesPanel = ({ settings, onSettingsChange }) => {
+  const [showBackgroundDetails, setShowBackgroundDetails] = React.useState(false);
+
   const handleChange = (key, value) => {
     onSettingsChange({ ...settings, [key]: value });
   };
@@ -12,12 +16,6 @@ const PropertiesPanel = ({ settings, onSettingsChange }) => {
   };
 
   const setPatternColor = (svgString, color) => {
-    // Ensure color is hex and remove # for the URL encoding if needed, 
-    // but here we are replacing %23... so we need to encode the # as %23
-    // Actually the regex matches %23 followed by hex.
-    // The input color is like #RRGGBB.
-    // We need to replace `fill='%23......'` with `fill='%23(new color without #)'`
-    
     const cleanColor = color.replace('#', '');
     return svgString.replace(/fill='%23[0-9A-Fa-f]{6}'/, `fill='%23${cleanColor}'`);
   };
@@ -25,58 +23,79 @@ const PropertiesPanel = ({ settings, onSettingsChange }) => {
   return (
     <div className="w-80 bg-neutral-950 border-l border-neutral-800 p-4 flex flex-col gap-6 overflow-y-auto">
       <div>
-        <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">Background</h3>
-        <div className="space-y-3">
-            <div className="flex flex-col gap-2">
-                <BackgroundPicker 
-                    value={settings.backgroundColor}
-                    onChange={(value) => handleChange('backgroundColor', value)}
-                />
-                {settings.backgroundColor.includes('data:image/svg+xml') && (
-                    <div className="space-y-3 mt-2">
-                        <div className="flex items-center justify-between">
-                            <label className="text-sm text-neutral-300">Pattern Scale</label>
-                            <input 
-                                type="range" 
-                                min="10" 
-                                max="500" 
-                                value={settings.backgroundScale || 100}
-                                onChange={(e) => handleChange('backgroundScale', parseInt(e.target.value))}
-                                className="w-32 accent-blue-500"
-                            />
-                        </div>
-                        
-                        <div>
-                            <label className="text-sm text-neutral-300 mb-2 block">Pattern Color</label>
-                            <div className="grid grid-cols-7 gap-1.5">
-                                {SOLIDS.map((color) => (
-                                    <button
-                                        key={color}
-                                        onClick={() => handleChange('backgroundColor', setPatternColor(settings.backgroundColor, color))}
-                                        className={`w-5 h-5 rounded-full border border-neutral-700 hover:scale-110 transition-transform ${
-                                            getPatternColor(settings.backgroundColor).toLowerCase() === color.toLowerCase() 
-                                                ? 'ring-2 ring-white ring-offset-1 ring-offset-neutral-950' 
-                                                : ''
-                                        }`}
-                                        style={{ backgroundColor: color }}
-                                    />
-                                ))}
+        <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium text-neutral-200">Background</label>
+            <div className="flex items-center gap-1">
+                <button
+                    onClick={() => setShowBackgroundDetails(!showBackgroundDetails)}
+                    className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded transition-colors"
+                >
+                    {showBackgroundDetails ? 'Hide' : 'Customize'}
+                </button>
+                <button
+                    onClick={() => onSettingsChange({ ...settings, ...getRandomBackground() })}
+                    className="p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-md transition-colors"
+                    title="Randomize Background"
+                >
+                    <Shuffle size={14} />
+                </button>
+            </div>
+        </div>
+        
+        {showBackgroundDetails && (
+            <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="flex flex-col gap-2">
+                    <BackgroundPicker 
+                        value={settings.backgroundColor}
+                        onChange={(value) => handleChange('backgroundColor', value)}
+                    />
+                    {settings.backgroundColor.includes('data:image/svg+xml') && (
+                        <div className="space-y-3 mt-2">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm text-neutral-300">Pattern Scale</label>
+                                <input 
+                                    type="range" 
+                                    min="10" 
+                                    max="500" 
+                                    value={settings.backgroundScale || 100}
+                                    onChange={(e) => handleChange('backgroundScale', parseInt(e.target.value))}
+                                    className="w-32 accent-blue-500"
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="text-sm text-neutral-300 mb-2 block">Pattern Color</label>
+                                <div className="grid grid-cols-7 gap-1.5">
+                                    {SOLIDS.map((color) => (
+                                        <button
+                                            key={color}
+                                            onClick={() => handleChange('backgroundColor', setPatternColor(settings.backgroundColor, color))}
+                                            className={`w-5 h-5 rounded-full border border-neutral-700 hover:scale-110 transition-transform ${
+                                                getPatternColor(settings.backgroundColor).toLowerCase() === color.toLowerCase() 
+                                                    ? 'ring-2 ring-white ring-offset-1 ring-offset-neutral-950' 
+                                                    : ''
+                                            }`}
+                                            style={{ backgroundColor: color }}
+                                        />
+                                    ))}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
-            <div className="flex items-center justify-between">
-                <label className="text-sm text-neutral-300">Padding</label>
-                <input 
-                    type="range" 
-                    min="0" 
-                    max="100" 
-                    value={settings.padding}
-                    onChange={(e) => handleChange('padding', parseInt(e.target.value))}
-                    className="w-32 accent-blue-500"
-                />
-            </div>
+        )}
+        
+        <div className="flex items-center justify-between mt-4">
+            <label className="text-sm text-neutral-300">Padding</label>
+            <input 
+                type="range" 
+                min="0" 
+                max="100" 
+                value={settings.padding}
+                onChange={(e) => handleChange('padding', parseInt(e.target.value))}
+                className="w-32 accent-blue-500"
+            />
         </div>
       </div>
 
