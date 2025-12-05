@@ -7,6 +7,7 @@ import { Play, Pause } from 'lucide-react';
 import { useRecordingLoader } from '../hooks/useRecordingLoader';
 import { useEditorState } from '../hooks/useEditorState';
 import { useVideoExport } from '../hooks/useVideoExport';
+import { useAutoSave } from '../hooks/useAutoSave';
 
 const DEFAULT_SETTINGS = {
   showScreen: true,
@@ -62,10 +63,67 @@ const EditorLayout = () => {
       handleTimeUpdate,
       handleLoadedMetadata,
       handleHover,
-      handleSeek
+      handleSeek,
+      applyAutoZoomOverrides,
+      setOverrides,
+      setBaseSettings
   } = useEditorState({
       defaultSettings: DEFAULT_SETTINGS
   });
+
+  // Load config on startup
+  useEffect(() => {
+      const loadConfig = async () => {
+          try {
+              const res = await fetch('/demo/config.json');
+              if (res.ok) {
+                  const config = await res.json();
+                  if (config.baseSettings) {
+                      setBaseSettings(prev => ({ ...prev, ...config.baseSettings }));
+                  }
+                  if (config.overrides) {
+                      setOverrides(config.overrides);
+                  }
+                  console.log("Loaded config from /demo/config.json");
+              }
+          } catch (e) {
+              console.log("No existing config found or failed to load", e);
+          }
+      };
+      loadConfig();
+  }, [setBaseSettings, setOverrides]);
+
+  // Auto-save
+  useAutoSave({ baseSettings, overrides }, '/api/save-config', 2000);
+
+  const handleAutoZoom = useCallback(async () => {
+      if (!interactions) return;
+      
+      // Dynamic import to avoid circular dependencies or large bundle if not used
+      const { generateZoomOverrides } = await import('../utils/autoZoom');
+      
+      // Fetch interactions if it's a URL (which it is in the demo)
+      let interactionsData = [];
+      if (typeof interactions === 'string') {
+          try {
+              const res = await fetch(interactions);
+              interactionsData = await res.json();
+          } catch (e) {
+              console.error("Failed to load interactions for auto-zoom", e);
+              return;
+          }
+      } else {
+          interactionsData = interactions;
+      }
+
+      const newOverrides = generateZoomOverrides(
+        interactionsData, 
+        duration, 
+        screenRef.current?.videoWidth || 1920, 
+        screenRef.current?.videoHeight || 1080
+      );
+      applyAutoZoomOverrides(newOverrides);
+  }, [interactions, duration, applyAutoZoomOverrides]);
 
   const [panelWidth, setPanelWidth] = useState(320);
   const [timelineHeight, setTimelineHeight] = useState(300);
@@ -111,6 +169,15 @@ const EditorLayout = () => {
       };
   }, []);
 
+  // Auto-generate zoom overrides when interactions are loaded
+  useEffect(() => {
+      if (interactions && duration > 0) {
+          // Check if we already have auto-zoom overrides to avoid re-generating?
+          // For now, just run it once.
+          handleAutoZoom();
+      }
+  }, [interactions, duration, handleAutoZoom]);
+
   // Pass data to export hook
   useEffect(() => {
       if (isExporting) {
@@ -119,6 +186,23 @@ const EditorLayout = () => {
           // For now, assuming it uses the refs directly or we pass them here
       }
   }, [isExporting]);
+
+  const handleSaveConfig = useCallback(() => {
+      const config = {
+          baseSettings,
+          overrides
+      };
+      
+      const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'project-config.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+  }, [baseSettings, overrides]);
 
   if (loading) {
     return (
@@ -143,6 +227,7 @@ const EditorLayout = () => {
               isExporting={isExporting}
               exportProgress={progress}
               onExport={startExport}
+              onSave={handleSaveConfig}
           />
 
           {/* Main Content Area */}
@@ -172,7 +257,7 @@ const EditorLayout = () => {
               {/* Canvas Area */}
           <div className="flex-1 bg-neutral-950 flex items-center justify-center relative overflow-hidden">
               <Canvas 
-                  screenRef={screenRef}
+                  ref={screenRef}
                   cameraRef={cameraRef}
                   videoSrc={screen}
                   cameraSrc={camera}

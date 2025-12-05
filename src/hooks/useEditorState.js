@@ -144,7 +144,22 @@ export const useEditorState = () => {
     [screenRef, audioRef, cameraRef].forEach(ref => {
       if (ref.current) {
         if (ref.current.play) {
-            nextState ? ref.current.play() : ref.current.pause();
+            if (nextState) {
+                const playPromise = ref.current.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        // Ignore AbortError which happens when pausing while loading or playing
+                        if (error.name === 'NotAllowedError') {
+                             console.warn("Playback failed due to autoplay policy. User interaction required.", error);
+                             setIsPlaying(false);
+                        } else if (error.name !== 'AbortError') {
+                             console.error("Playback failed", error);
+                        }
+                    });
+                }
+            } else {
+                ref.current.pause();
+            }
         }
       }
     });
@@ -270,6 +285,26 @@ export const useEditorState = () => {
       }
   }, [currentFrame.audio]);
 
+
+
+
+  const applyAutoZoomOverrides = useCallback((newOverrides) => {
+      setOverrides(prev => {
+          // Filter out duplicates
+          const uniqueNewOverrides = newOverrides.filter(newOverride => {
+              return !prev.some(existingOverride => 
+                  Math.abs(existingOverride.start - newOverride.start) < 0.01 &&
+                  Math.abs(existingOverride.end - newOverride.end) < 0.01 &&
+                  existingOverride.settings.name === newOverride.settings.name
+              );
+          });
+          
+          if (uniqueNewOverrides.length === 0) return prev;
+          
+          return [...prev, ...uniqueNewOverrides];
+      });
+  }, []);
+
   return {
       isPlaying,
       currentTime,
@@ -301,6 +336,9 @@ export const useEditorState = () => {
       handleTimeUpdate,
       handleLoadedMetadata,
       handleHover,
-      handleSeek
+      handleSeek,
+      applyAutoZoomOverrides,
+      setOverrides,
+      setBaseSettings
   };
 };

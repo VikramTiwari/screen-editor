@@ -1,7 +1,7 @@
 import React from 'react';
 import { Download } from 'lucide-react';
 
-const EditorHeader = ({ isExporting, loading, error, onExport }) => {
+const EditorHeader = ({ isExporting, loading, error, onExport, onSave }) => {
   return (
     <header className="h-14 border-b border-neutral-800 flex items-center px-4 justify-between bg-neutral-950 z-10">
       <div className="flex items-center gap-2">
@@ -12,6 +12,14 @@ const EditorHeader = ({ isExporting, loading, error, onExport }) => {
       <div className="flex items-center gap-4">
           {loading && <span className="text-xs text-yellow-500 animate-pulse">Loading assets...</span>}
           {error && <span className="text-xs text-red-500">{error}</span>}
+          
+          <button 
+              onClick={onSave}
+              className="bg-neutral-800 text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-neutral-700 transition-colors flex items-center gap-2"
+          >
+              <Download size={16} /> Save Config
+          </button>
+
           <button 
               onClick={onExport}
               disabled={isExporting || loading}

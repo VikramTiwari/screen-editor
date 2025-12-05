@@ -25,7 +25,8 @@ const Canvas = forwardRef(({
       }
   };
 
-    const isPattern = settings.backgroundColor.includes('data:image/svg+xml');
+    const backgroundColor = settings.backgroundColor || '#000000';
+    const isPattern = backgroundColor.includes('data:image/svg+xml');
     const { layoutMode = 'default' } = settings;
 
     // Determine main video source based on layout mode
@@ -70,7 +71,8 @@ const Canvas = forwardRef(({
         <div 
             className="w-full h-full flex items-center justify-center transition-all duration-200"
             style={{ 
-                background: settings.backgroundColor, 
+                backgroundColor: !isPattern && !backgroundColor.includes('gradient') ? backgroundColor : undefined,
+                backgroundImage: isPattern || backgroundColor.includes('gradient') ? backgroundColor : undefined,
                 backgroundSize: isPattern ? `${settings.backgroundScale}px` : 'cover', 
                 backgroundPosition: 'center center',
                 backgroundRepeat: isPattern ? 'repeat' : 'no-repeat'
@@ -90,14 +92,51 @@ const Canvas = forwardRef(({
                     }}
                 >
                     {/* Main Video */}
-                    <VideoPlayer 
-                        ref={mainVideoRef}
-                        src={mainVideoSrc}
-                        isMuted={true}
-                        onTimeUpdate={mainVideoRef === ref ? onTimeUpdate : undefined}
-                        onLoadedMetadata={mainVideoRef === ref ? onLoadedMetadata : undefined}
-                        className="!border-none !rounded-none w-full h-full" 
-                    />
+                    <div 
+                        className="w-full h-full transition-transform duration-500 ease-in-out"
+                        style={{
+                            transform: (() => {
+                                const zoom = settings.zoomScale || 1;
+                                const fx = settings.focalPointX !== undefined ? settings.focalPointX : 50;
+                                const fy = settings.focalPointY !== undefined ? settings.focalPointY : 50;
+                                
+                                // Calculate raw translation to center the focal point
+                                let tx = 50 - (fx * zoom);
+                                let ty = 50 - (fy * zoom);
+
+                                // Clamp values to ensure we don't show black bars
+                                // The translation must be between 100*(1-zoom) and 0
+                                const minTranslate = 100 * (1 - zoom);
+                                const maxTranslate = 0;
+
+                                tx = Math.min(maxTranslate, Math.max(minTranslate, tx));
+                                ty = Math.min(maxTranslate, Math.max(minTranslate, ty));
+
+                                return `translate(${tx}%, ${ty}%) scale(${zoom})`;
+                            })(),
+                            transformOrigin: '0 0'
+                        }}
+                    >
+                        <VideoPlayer 
+                            ref={mainVideoRef}
+                            src={mainVideoSrc}
+                            isMuted={true}
+                            onTimeUpdate={mainVideoRef === ref ? onTimeUpdate : undefined}
+                            onLoadedMetadata={mainVideoRef === ref ? onLoadedMetadata : undefined}
+                            className="!border-none !rounded-none w-full h-full" 
+                        />
+                        
+                        <InteractionVisualizer src={interactionsSrc} currentTime={currentTime} />
+                        
+                        {/* Interactions Layer */}
+                        {showInteractions && interactionsSrc && (
+                            <img 
+                                src={interactionsSrc}
+                                className="absolute inset-0 w-full h-full object-contain pointer-events-none z-20"
+                                style={{ opacity: 0.8 }}
+                            />
+                        )}
+                    </div>
                     
                     {/* If main video is NOT the screen ref (e.g. full-camera), we still need to render screen ref hidden for timing if it's the master */}
                     {mainVideoRef !== ref && (
@@ -111,16 +150,7 @@ const Canvas = forwardRef(({
                         />
                     )}
 
-                    <InteractionVisualizer src={interactionsSrc} currentTime={currentTime} />
-                    
-                    {/* Interactions Layer */}
-                    {showInteractions && interactionsSrc && (
-                        <img 
-                            src={interactionsSrc}
-                            className="absolute inset-0 w-full h-full object-contain pointer-events-none z-20"
-                            style={{ opacity: 0.8 }}
-                        />
-                    )}
+
                     
                     {/* Camera PiP */}
                     {showPiP && (
