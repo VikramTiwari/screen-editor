@@ -3,7 +3,7 @@ import { Shuffle } from 'lucide-react';
 import BackgroundPicker from './BackgroundPicker';
 import { getRandomBackground, SOLIDS } from '../utils/backgrounds';
 
-const PropertiesPanel = ({ settings, onSettingsChange }) => {
+const PropertiesPanel = ({ settings, onSettingsChange, selectionVisibility, onVisibilityChange, isBaseSettings }) => {
   const [showBackgroundDetails, setShowBackgroundDetails] = React.useState(false);
 
   const handleChange = (key, value) => {
@@ -21,7 +21,54 @@ const PropertiesPanel = ({ settings, onSettingsChange }) => {
   };
 
   return (
-    <div className="w-80 bg-neutral-950 border-l border-neutral-800 p-4 flex flex-col gap-6 overflow-y-auto">
+    <div className="w-full h-full bg-neutral-950 border-l border-neutral-800 p-4 flex flex-col gap-6 overflow-y-auto">
+      
+      {/* Mode Indicator */}
+      <div className="pb-4 border-b border-neutral-800">
+        <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+            {isBaseSettings ? 'Base Settings' : (settings.name || 'Override Settings')}
+        </h2>
+        <p className="text-xs text-neutral-500 mt-1">
+            {isBaseSettings ? 'Applied to entire video by default' : 'Applied to selected time range'}
+        </p>
+      </div>
+      
+      {/* Visibility Settings (Only if selectionVisibility is provided) */}
+      {selectionVisibility && (
+          <div>
+            <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">Visibility</h3>
+            <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                    <label className="text-sm text-neutral-300">Screen</label>
+                    <input 
+                        type="checkbox" 
+                        checked={selectionVisibility.screen}
+                        onChange={(e) => onVisibilityChange('screen', e.target.checked)}
+                        className="w-4 h-4 accent-blue-500 rounded"
+                    />
+                </div>
+                <div className="flex items-center justify-between">
+                    <label className="text-sm text-neutral-300">Camera</label>
+                    <input 
+                        type="checkbox" 
+                        checked={selectionVisibility.camera}
+                        onChange={(e) => onVisibilityChange('camera', e.target.checked)}
+                        className="w-4 h-4 accent-blue-500 rounded"
+                    />
+                </div>
+                <div className="flex items-center justify-between">
+                    <label className="text-sm text-neutral-300">Interactions</label>
+                    <input 
+                        type="checkbox" 
+                        checked={settings.showInteractions ?? true}
+                        onChange={(e) => onSettingsChange({ ...settings, showInteractions: e.target.checked })}
+                        className="w-4 h-4 accent-blue-500 rounded"
+                    />
+                </div>
+            </div>
+          </div>
+      )}
+
       <div>
         <div className="flex items-center justify-between mb-2">
             <label className="text-sm font-medium text-neutral-200">Background</label>

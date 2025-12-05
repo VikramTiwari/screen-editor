@@ -1,199 +1,293 @@
-import React, { useState, useRef } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Settings, Download } from 'lucide-react';
-import { useRecordingLoader } from '../hooks/useRecordingLoader';
-import VideoPlayer from './VideoPlayer';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import Canvas from './Canvas';
-import InteractionVisualizer from './InteractionVisualizer';
 import PropertiesPanel from './PropertiesPanel';
+import Timeline from './Timeline';
+import EditorHeader from './EditorHeader';
+import { Play, Pause } from 'lucide-react';
+import { useRecordingLoader } from '../hooks/useRecordingLoader';
+import { useEditorState } from '../hooks/useEditorState';
 import { useVideoExport } from '../hooks/useVideoExport';
-import { getRandomBackground } from '../utils/backgrounds';
+
+const DEFAULT_SETTINGS = {
+  showScreen: true,
+  showCamera: true,
+  cameraSize: 300,
+  cameraPosition: 'bottom-right', // 'bottom-right', 'bottom-left', 'top-right', 'top-left'
+  backgroundType: 'gradient', // 'solid', 'gradient', 'image'
+  backgroundColor: '#000000',
+  backgroundGradient: 'linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%)',
+  backgroundImage: null,
+  padding: 40,
+  borderRadius: 20,
+  shadow: true
+};
+
+const formatTime = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
 
 const EditorLayout = () => {
   const { camera, screen, audio, interactions, loading, error } = useRecordingLoader();
+  const { isExporting, progress, startExport } = useVideoExport();
   
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  
-  // Canvas Settings
-  const [settings, setSettings] = useState({
-    ...getRandomBackground(),
-    padding: 40,
-    borderRadius: 12,
-    shadow: 20,
-    showCamera: true,
-    cameraSize: 200,
-    cameraPosition: 'bottom-left',
-    cameraShape: 'rectangle',
-    cameraBorderRadius: 12,
-    cameraShadow: 20,
+  const {
+      isPlaying,
+      currentTime,
+      duration,
+      selectionRange,
+      setSelectionRange,
+      overrides,
+      baseSettings,
+      selectedOverrideId,
+      setSelectedOverrideId,
+      timelineData,
+      currentFrame,
+      currentSettings,
+      getCurrentLayoutMode,
+      propertiesPanelSettings,
+      selectionVisibility,
+      screenRef,
+      audioRef,
+      cameraRef,
+      pendingOverrideStart,
+      markOverrideStart,
+      completeOverride,
+      cancelOverride,
+      deleteOverride,
+      handleSettingsChange,
+      handleVisibilityChange,
+      togglePlay,
+      handleTimeUpdate,
+      handleLoadedMetadata,
+      handleHover,
+      handleSeek
+  } = useEditorState({
+      defaultSettings: DEFAULT_SETTINGS
   });
 
-  const screenRef = useRef(null);
-  const audioRef = useRef(null);
-  const cameraRef = useRef(null);
+  const [panelWidth, setPanelWidth] = useState(320);
+  const [timelineHeight, setTimelineHeight] = useState(300);
+  const isDraggingPanel = useRef(false);
+  const isDraggingTimeline = useRef(false);
 
-  const { isExporting, progress, startExport } = useVideoExport();
+  const handlePanelResizeStart = useCallback((e) => {
+      e.preventDefault();
+      isDraggingPanel.current = true;
+      document.body.style.cursor = 'col-resize';
+  }, []);
 
-  // Helper to get raw video element from VideoPlayer ref
-  // We need to update VideoPlayer to expose the video element via ref
-  // Currently it exposes methods. We should add 'videoElement' getter.
-  
-  const handleExport = () => {
-    // We need to access the underlying video elements
-    // Since our refs are imperative handles, we need to ensure they expose the element
-    // Let's assume we'll update VideoPlayer to expose 'getVideoElement'
-    
-    const screenVideo = screenRef.current?.getVideoElement();
-    const cameraVideo = cameraRef.current?.getVideoElement();
-    // Audio is a native <audio> element, so we access it directly
-    const audioVideo = audioRef.current;
+  const handleTimelineResizeStart = useCallback((e) => {
+      e.preventDefault();
+      isDraggingTimeline.current = true;
+      document.body.style.cursor = 'row-resize';
+  }, []);
 
-    if (screenVideo) {
-        startExport({
-            screenVideo,
-            cameraVideo,
-            audioElement: audioVideo,
-            settings,
-            duration,
-            onComplete: () => {
-                console.log('Export complete');
-            }
-        });
-    }
-  };
+  useEffect(() => {
+      const handleMouseMove = (e) => {
+          if (isDraggingPanel.current) {
+              const newWidth = Math.max(250, Math.min(600, e.clientX));
+              setPanelWidth(newWidth);
+          }
+          if (isDraggingTimeline.current) {
+              const newHeight = Math.max(150, Math.min(600, window.innerHeight - e.clientY));
+              setTimelineHeight(newHeight);
+          }
+      };
 
-  const togglePlay = () => {
-    if (isExporting) return; // Disable playback control during export
-    const nextState = !isPlaying;
-    setIsPlaying(nextState);
+      const handleMouseUp = () => {
+          isDraggingPanel.current = false;
+          isDraggingTimeline.current = false;
+          document.body.style.cursor = 'default';
+      };
 
-    [screenRef, audioRef, cameraRef].forEach(ref => {
-      if (ref.current) {
-        nextState ? ref.current.play() : ref.current.pause();
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+
+      return () => {
+          window.removeEventListener('mousemove', handleMouseMove);
+          window.removeEventListener('mouseup', handleMouseUp);
+      };
+  }, []);
+
+  // Pass data to export hook
+  useEffect(() => {
+      if (isExporting) {
+          // We need to pass the refs and data to the export hook
+          // This part might need adjustment based on how useVideoExport is implemented
+          // For now, assuming it uses the refs directly or we pass them here
       }
-    });
-  };
+  }, [isExporting]);
 
-  const handleSeek = (e) => {
-    if (isExporting) return;
-    const time = parseFloat(e.target.value);
-    setCurrentTime(time);
-    [screenRef, audioRef, cameraRef].forEach(ref => {
-        if (ref.current) ref.current.seek(time);
-    });
-  };
+  if (loading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-neutral-900 text-white">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
-  const handleTimeUpdate = () => {
-    if (isExporting) return; // Don't update UI time during export to avoid jitter
-    if (screenRef.current) {
-        setCurrentTime(screenRef.current.getCurrentTime());
-    }
-  };
-
-  const handleLoadedMetadata = () => {
-      if (screenRef.current) {
-          setDuration(screenRef.current.getDuration());
-      }
-  };
-
-  const formatTime = (time) => {
-      const mins = Math.floor(time / 60);
-      const secs = Math.floor(time % 60);
-      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+  if (error) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-neutral-900 text-red-500">
+        Error: {error}
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col h-screen bg-neutral-950 text-white font-sans relative">
-      {/* Export Overlay */}
-      {isExporting && (
-        <div className="absolute inset-0 z-50 bg-black/80 flex flex-col items-center justify-center">
-            <div className="text-2xl font-bold mb-4">Exporting Video...</div>
-            <div className="w-96 h-4 bg-neutral-800 rounded-full overflow-hidden">
-                <div 
-                    className="h-full bg-blue-600 transition-all duration-100 ease-linear"
-                    style={{ width: `${progress}%` }}
-                />
-            </div>
-            <div className="mt-2 text-neutral-400">{Math.round(progress)}%</div>
-        </div>
-      )}
+      <div className="flex flex-col h-screen bg-neutral-900 text-white overflow-hidden">
+          {/* Header */}
+          <EditorHeader 
+              isExporting={isExporting}
+              exportProgress={progress}
+              onExport={startExport}
+          />
 
-      {/* Header */}
-      <header className="h-14 border-b border-neutral-800 flex items-center px-4 justify-between bg-neutral-950 z-10">
-        <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold">S</div>
-            <h1 className="font-bold text-sm tracking-tight">Untitled Project</h1>
-        </div>
-        
-        <div className="flex items-center gap-4">
-            {loading && <span className="text-xs text-yellow-500 animate-pulse">Loading assets...</span>}
-            {error && <span className="text-xs text-red-500">{error}</span>}
-            <button 
-                onClick={handleExport}
-                disabled={isExporting || loading}
-                className="bg-white text-black px-4 py-1.5 rounded-md text-sm font-medium hover:bg-neutral-200 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                <Download size={16} /> {isExporting ? 'Exporting...' : 'Export'}
-            </button>
-        </div>
-      </header>
+          {/* Main Content Area */}
+          <div className="flex-1 flex overflow-hidden">
+              {/* Left Sidebar - Properties Panel */}
+              <div 
+                  className="flex-shrink-0 bg-neutral-900 border-r border-neutral-800 flex flex-col"
+                  style={{ width: panelWidth }}
+              >
+                  <PropertiesPanel 
+                      settings={propertiesPanelSettings}
+                      onSettingsChange={handleSettingsChange}
+                      selectionVisibility={selectionVisibility}
+                      onVisibilityChange={handleVisibilityChange}
+                      isBaseSettings={!selectedOverrideId}
+                  />
+              </div>
 
-      {/* Main Workspace */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar (Timeline/Layers - Placeholder for now) */}
-        {/* <div className="w-64 border-r border-neutral-800 bg-neutral-950 hidden md:block"></div> */}
+              {/* Resize Handle for Panel */}
+              <div
+                  className="w-3 -ml-1.5 hover:bg-blue-500/10 cursor-col-resize transition-all z-20 flex items-center justify-center group"
+                  onMouseDown={handlePanelResizeStart}
+              >
+                  <div className="w-px h-full bg-neutral-800 group-hover:bg-blue-500 transition-colors" />
+              </div>
 
-        {/* Center Canvas */}
-        <Canvas 
-            ref={screenRef}
-            cameraRef={cameraRef}
-            videoSrc={screen}
-            cameraSrc={camera}
-            interactionsSrc={interactions}
-            currentTime={currentTime}
-            settings={settings}
-            onTimeUpdate={handleTimeUpdate}
-            onLoadedMetadata={handleLoadedMetadata}
-        />
+              {/* Canvas Area */}
+          <div className="flex-1 bg-neutral-950 flex items-center justify-center relative overflow-hidden">
+              <Canvas 
+                  screenRef={screenRef}
+                  cameraRef={cameraRef}
+                  videoSrc={screen}
+                  cameraSrc={camera}
+                  interactionsSrc={interactions}
+                  showInteractions={currentFrame.interactions}
+                  currentTime={currentTime}
+                  settings={{
+                      ...currentSettings,
+                      layoutMode: getCurrentLayoutMode()
+                  }}
+                  onTimeUpdate={() => handleTimeUpdate(isExporting)}
+                  onLoadedMetadata={handleLoadedMetadata}
+              />
+              
+              {/* Audio Element (Hidden) */}
+              <audio 
+                  ref={audioRef} 
+                  src={audio} 
+                  onTimeUpdate={() => handleTimeUpdate(isExporting)}
+                  onLoadedMetadata={handleLoadedMetadata}
+                  onEnded={() => togglePlay(isExporting)}
+              />
+          </div>
+          </div>
 
-        {/* Right Properties Panel */}
-        <PropertiesPanel settings={settings} onSettingsChange={setSettings} />
-      </div>
+          {/* Resize Handle for Timeline */}
+          <div
+              className="h-1 hover:h-1.5 bg-neutral-800 hover:bg-blue-500 cursor-row-resize transition-all z-10"
+              onMouseDown={handleTimelineResizeStart}
+          />
 
-      {/* Bottom Timeline / Controls */}
-      <footer className="h-24 border-t border-neutral-800 bg-neutral-950 flex flex-col px-4 py-2 z-10">
-         {/* Timeline Scrubber */}
-         <div className="w-full mb-2 flex items-center gap-4">
-            <span className="text-xs font-mono text-neutral-500 w-10 text-right">{formatTime(currentTime)}</span>
-            <input 
-                type="range" 
-                min="0" 
-                max={duration || 100} 
-                step="0.01"
-                value={currentTime} 
-                onChange={handleSeek}
-                className="flex-1 h-8 bg-transparent cursor-pointer appearance-none [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:bg-neutral-800 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-1 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:-mt-1.5"
-            />
-            <span className="text-xs font-mono text-neutral-500 w-10">{formatTime(duration)}</span>
-         </div>
+          {/* Bottom Timeline Area */}
+          <div 
+              className="flex-shrink-0 bg-neutral-900 border-t border-neutral-800 flex flex-col"
+              style={{ height: timelineHeight }}
+          >
+              {/* Timeline Controls Toolbar */}
+              <div className="h-10 border-b border-neutral-800 flex items-center px-4 gap-2 bg-neutral-900 flex-shrink-0">
+                  <button 
+                      onClick={() => togglePlay(isExporting)}
+                      className="p-1.5 hover:bg-neutral-800 rounded-md text-white transition-colors"
+                      title={isPlaying ? "Pause (Space)" : "Play (Space)"}
+                  >
+                      {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+                  </button>
+                  
+                  <span className="text-xs font-mono text-neutral-500 w-10 text-right">{formatTime(currentTime)}</span>
+                  <div className="h-4 w-px bg-neutral-800 mx-2" />
+                  
+                  <div className="h-4 w-px bg-neutral-800 mx-2" />
+                  
+                  {!pendingOverrideStart ? (
+                      <button 
+                          onClick={markOverrideStart}
+                          className="p-1.5 hover:bg-neutral-800 rounded-md text-neutral-400 hover:text-white transition-colors text-xs font-medium flex items-center gap-1"
+                          title="Start Override Range"
+                      >
+                          <div className="w-3 h-3 border-l border-current" /> Start Override
+                      </button>
+                  ) : (
+                      <>
+                          <button 
+                              onClick={completeOverride}
+                              className="p-1.5 bg-blue-600 hover:bg-blue-500 rounded-md text-white transition-colors text-xs font-medium flex items-center gap-1 animate-pulse"
+                              title="Complete Override Range"
+                          >
+                              <div className="w-3 h-3 border-r border-current" /> End Override
+                          </button>
+                          <button 
+                              onClick={cancelOverride}
+                              className="p-1.5 hover:bg-neutral-800 rounded-md text-neutral-400 hover:text-white transition-colors text-xs font-medium"
+                              title="Cancel Override"
+                          >
+                              Cancel
+                          </button>
+                      </>
+                  )}
 
-         {/* Playback Controls */}
-         <div className="flex items-center justify-center gap-4">
-            <button className="text-neutral-400 hover:text-white transition-colors"><SkipBack size={20} /></button>
-            <button 
-                onClick={togglePlay}
-                className="w-10 h-10 bg-white text-black rounded-full flex items-center justify-center hover:scale-105 transition-transform"
-            >
-                {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
-            </button>
-            <button className="text-neutral-400 hover:text-white transition-colors"><SkipForward size={20} /></button>
-         </div>
+                  {selectedOverrideId && !pendingOverrideStart && (
+                      <>
+                          <div className="h-4 w-px bg-neutral-800 mx-2" />
+                          <button 
+                              onClick={() => deleteOverride(selectedOverrideId)}
+                              className="p-1.5 hover:bg-red-900/50 text-red-500 hover:text-red-400 rounded-md transition-colors text-xs font-medium flex items-center gap-1"
+                              title="Delete Selected Override"
+                          >
+                              <div className="w-3 h-3 border border-current rounded-sm flex items-center justify-center">
+                                  <div className="w-1.5 h-px bg-current" />
+                              </div>
+                              Delete Override
+                          </button>
+                      </>
+                  )}
+                  <div className="flex-1" />
+                  <span className="text-xs font-mono text-neutral-500 w-10">{formatTime(duration)}</span>
+              </div>
 
-         {/* Hidden Audio Player */}
-         <audio ref={audioRef} src={audio} />
-      </footer>
-    </div>
+              <div className="flex-1 min-h-0 relative">
+                  <Timeline 
+                      timelineData={timelineData}
+                      duration={duration || 100}
+                      currentTime={currentTime}
+                      onSeek={(time) => handleSeek(time, isExporting)}
+                      onHover={handleHover}
+                      overrides={overrides}
+                      baseSettings={baseSettings}
+                      selectedOverrideId={selectedOverrideId}
+                      onOverrideSelect={setSelectedOverrideId}
+                      selectionRange={selectionRange}
+                      onSelectionChange={setSelectionRange}
+                      pendingOverrideStart={pendingOverrideStart}
+                  />
+              </div>
+          </div>
+       </div>
   );
 };
 
