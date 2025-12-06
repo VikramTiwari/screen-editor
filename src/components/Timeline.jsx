@@ -14,10 +14,11 @@ const Timeline = ({
     onOverrideSelect,
     selectionRange,
     onSelectionChange,
-    pendingOverrideStart
+    pendingOverrideStart,
+    disabled
 }) => {
   return (
-    <div className="flex flex-col h-full bg-neutral-900">
+    <div className={`flex flex-col h-full bg-neutral-900 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
         {/* Time Ruler */}
         <div className="h-6 border-b border-neutral-800 flex items-center px-2 text-xs text-neutral-500 select-none">
             <span className="w-24">Tracks</span>

@@ -52,7 +52,7 @@ const Slider = ({ label, value, min, max, onChange, unit = '' }) => (
     </div>
 );
 
-const PropertiesPanel = ({ settings, onSettingsChange, selectionVisibility, onVisibilityChange, isBaseSettings }) => {
+const PropertiesPanel = ({ settings, onSettingsChange, selectionVisibility, onVisibilityChange, isBaseSettings, disabled }) => {
   const [showBackgroundDetails, setShowBackgroundDetails] = React.useState(false);
 
   const handleChange = (key, value) => {
@@ -70,7 +70,7 @@ const PropertiesPanel = ({ settings, onSettingsChange, selectionVisibility, onVi
   };
 
   return (
-    <div className="w-full h-full bg-neutral-950 border-l border-neutral-800 p-4 flex flex-col gap-8 overflow-y-auto">
+    <div className={`w-full h-full bg-neutral-950 border-l border-neutral-800 p-4 flex flex-col gap-8 overflow-y-auto ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
       
       {/* Mode Indicator */}
       <div className="pb-4 border-b border-neutral-800">

@@ -1,9 +1,9 @@
 import React from 'react';
 import { Download } from 'lucide-react';
 
-const EditorHeader = ({ isExporting, loading, error, onExport, onSave }) => {
+const EditorHeader = ({ isExporting, exportProgress, loading, error, onExport, onSave }) => {
   return (
-    <header className="h-14 border-b border-neutral-800 flex items-center px-4 justify-between bg-neutral-950 z-10">
+    <header className="h-14 border-b border-neutral-800 flex items-center px-4 justify-between bg-neutral-950 z-10 relative">
       <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold">S</div>
           <h1 className="font-bold text-sm tracking-tight">Untitled Project</h1>
@@ -15,7 +15,8 @@ const EditorHeader = ({ isExporting, loading, error, onExport, onSave }) => {
           
           <button 
               onClick={onSave}
-              className="bg-neutral-800 text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-neutral-700 transition-colors flex items-center gap-2"
+              disabled={isExporting}
+              className="bg-neutral-800 text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-neutral-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
               <Download size={16} /> Save Config
           </button>
@@ -25,9 +26,19 @@ const EditorHeader = ({ isExporting, loading, error, onExport, onSave }) => {
               disabled={isExporting || loading}
               className="bg-white text-black px-4 py-1.5 rounded-md text-sm font-medium hover:bg-neutral-200 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-              <Download size={16} /> {isExporting ? 'Exporting...' : 'Export'}
+              <Download size={16} /> {isExporting ? `Exporting ${Math.round(exportProgress)}%` : 'Export'}
           </button>
       </div>
+      
+      {/* Progress Bar */}
+      {isExporting && (
+          <div className="absolute bottom-0 left-0 w-full h-1 bg-neutral-800">
+              <div 
+                  className="h-full bg-blue-500 transition-all duration-300 ease-out"
+                  style={{ width: `${exportProgress}%` }}
+              />
+          </div>
+      )}
     </header>
   );
 };

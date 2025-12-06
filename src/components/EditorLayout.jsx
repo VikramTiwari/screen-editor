@@ -187,6 +187,40 @@ const EditorLayout = () => {
       }
   }, [isExporting]);
 
+  const handleExport = useCallback(async () => {
+      const screenVideo = screenRef.current?.getVideoElement();
+      const cameraVideo = cameraRef.current?.getVideoElement();
+      const audio = audioRef.current;
+
+      // Load interactions data
+      let interactionsData = [];
+      if (interactions) {
+          if (typeof interactions === 'string') {
+              try {
+                  const res = await fetch(interactions);
+                  interactionsData = await res.json();
+              } catch (e) {
+                  console.error("Failed to load interactions for export", e);
+              }
+          } else {
+              interactionsData = interactions;
+          }
+      }
+
+      startExport({
+          screenVideo,
+          cameraVideo,
+          audioElement: audio,
+          baseSettings,
+          overrides,
+          duration,
+          interactionsData, // Pass data
+          onComplete: () => {
+              console.log("Export complete");
+          }
+      });
+  }, [screenRef, cameraRef, audioRef, startExport, baseSettings, overrides, duration, interactions]);
+
   const handleSaveConfig = useCallback(() => {
       const config = {
           baseSettings,
@@ -226,7 +260,7 @@ const EditorLayout = () => {
           <EditorHeader 
               isExporting={isExporting}
               exportProgress={progress}
-              onExport={startExport}
+              onExport={handleExport}
               onSave={handleSaveConfig}
           />
 
@@ -243,13 +277,14 @@ const EditorLayout = () => {
                       selectionVisibility={selectionVisibility}
                       onVisibilityChange={handleVisibilityChange}
                       isBaseSettings={!selectedOverrideId}
+                      disabled={isExporting}
                   />
               </div>
 
               {/* Resize Handle for Panel */}
               <div
-                  className="w-3 -ml-1.5 hover:bg-blue-500/10 cursor-col-resize transition-all z-20 flex items-center justify-center group"
-                  onMouseDown={handlePanelResizeStart}
+                  className={`w-3 -ml-1.5 cursor-col-resize transition-all z-20 flex items-center justify-center group ${isExporting ? 'pointer-events-none opacity-50' : 'hover:bg-blue-500/10'}`}
+                  onMouseDown={!isExporting ? handlePanelResizeStart : undefined}
               >
                   <div className="w-px h-full bg-neutral-800 group-hover:bg-blue-500 transition-colors" />
               </div>
@@ -285,8 +320,8 @@ const EditorLayout = () => {
 
           {/* Resize Handle for Timeline */}
           <div
-              className="h-1 hover:h-1.5 bg-neutral-800 hover:bg-blue-500 cursor-row-resize transition-all z-10"
-              onMouseDown={handleTimelineResizeStart}
+              className={`h-1 cursor-row-resize transition-all z-10 ${isExporting ? 'pointer-events-none opacity-50' : 'hover:h-1.5 bg-neutral-800 hover:bg-blue-500'}`}
+              onMouseDown={!isExporting ? handleTimelineResizeStart : undefined}
           />
 
           {/* Bottom Timeline Area */}
@@ -295,7 +330,7 @@ const EditorLayout = () => {
               style={{ height: timelineHeight }}
           >
               {/* Timeline Controls Toolbar */}
-              <div className="h-10 border-b border-neutral-800 flex items-center px-4 gap-2 bg-neutral-900 flex-shrink-0">
+              <div className={`h-10 border-b border-neutral-800 flex items-center px-4 gap-2 bg-neutral-900 flex-shrink-0 ${isExporting ? 'pointer-events-none opacity-50' : ''}`}>
                   <button 
                       onClick={() => togglePlay(isExporting)}
                       className="p-1.5 hover:bg-neutral-800 rounded-md text-white transition-colors"
@@ -369,6 +404,7 @@ const EditorLayout = () => {
                       selectionRange={selectionRange}
                       onSelectionChange={setSelectionRange}
                       pendingOverrideStart={pendingOverrideStart}
+                      disabled={isExporting}
                   />
               </div>
           </div>
