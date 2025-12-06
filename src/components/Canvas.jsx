@@ -67,7 +67,7 @@ const Canvas = forwardRef(({
 
     return (
     <div className="flex-1 bg-black overflow-hidden flex items-center justify-center">
-      <div className="w-auto h-auto max-w-5xl max-h-[80vh] aspect-[16/10] bg-neutral-900 flex items-center justify-center p-8 shadow-2xl rounded-2xl border border-neutral-800">
+      <div className="w-auto h-auto max-w-full max-h-[80vh] aspect-video flex items-center justify-center">
         <div 
             className="w-full h-full flex items-center justify-center transition-all duration-200"
             style={{ 

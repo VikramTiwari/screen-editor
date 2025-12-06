@@ -1,12 +1,36 @@
 import React from 'react';
 import { Download } from 'lucide-react';
 
-const EditorHeader = ({ isExporting, exportProgress, loading, error, onExport, onSave }) => {
+const EditorHeader = ({ isExporting, exportProgress, loading, error, onExport, onSave, viewMode, onViewModeChange }) => {
   return (
     <header className="h-14 border-b border-neutral-800 flex items-center px-4 justify-between bg-neutral-950 z-10 relative">
       <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold">S</div>
           <h1 className="font-bold text-sm tracking-tight">Untitled Project</h1>
+      </div>
+      
+      {/* View Mode Selector */}
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-neutral-900 p-1 rounded-lg border border-neutral-800 flex items-center">
+        <button 
+            onClick={() => onViewModeChange('studio')}
+            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                viewMode === 'studio' 
+                    ? 'bg-neutral-700 text-white shadow-sm' 
+                    : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
+            }`}
+        >
+            Studio
+        </button>
+        <button 
+            onClick={() => onViewModeChange('youtube')}
+            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                viewMode === 'youtube' 
+                    ? 'bg-neutral-700 text-white shadow-sm' 
+                    : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
+            }`}
+        >
+            YouTube
+        </button>
       </div>
       
       <div className="flex items-center gap-4">

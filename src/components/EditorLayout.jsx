@@ -8,6 +8,7 @@ import { useRecordingLoader } from '../hooks/useRecordingLoader';
 import { useEditorState } from '../hooks/useEditorState';
 import { useVideoExport } from '../hooks/useVideoExport';
 import { useAutoSave } from '../hooks/useAutoSave';
+import YouTubeMock from './YouTubeMock';
 
 const DEFAULT_SETTINGS = {
   showScreen: true,
@@ -125,10 +126,22 @@ const EditorLayout = () => {
       applyAutoZoomOverrides(newOverrides);
   }, [interactions, duration, applyAutoZoomOverrides]);
 
+  // Auto-generate zoom overrides when interactions are loaded
+  useEffect(() => {
+      if (interactions && duration > 0) {
+          // Check if we already have auto-zoom overrides to avoid re-generating?
+          // For now, just run it once.
+          handleAutoZoom();
+      }
+  }, [interactions, duration, handleAutoZoom]);
+
   const [panelWidth, setPanelWidth] = useState(320);
-  const [timelineHeight, setTimelineHeight] = useState(300);
+  const [timelineHeight, setTimelineHeight] = useState(450);
+  const [viewMode, setViewMode] = useState('studio');
   const isDraggingPanel = useRef(false);
   const isDraggingTimeline = useRef(false);
+
+  // ... (rest of resizing logic same) ...
 
   const handlePanelResizeStart = useCallback((e) => {
       e.preventDefault();
@@ -168,15 +181,6 @@ const EditorLayout = () => {
           window.removeEventListener('mouseup', handleMouseUp);
       };
   }, []);
-
-  // Auto-generate zoom overrides when interactions are loaded
-  useEffect(() => {
-      if (interactions && duration > 0) {
-          // Check if we already have auto-zoom overrides to avoid re-generating?
-          // For now, just run it once.
-          handleAutoZoom();
-      }
-  }, [interactions, duration, handleAutoZoom]);
 
   // Pass data to export hook
   useEffect(() => {
@@ -262,152 +266,186 @@ const EditorLayout = () => {
               exportProgress={progress}
               onExport={handleExport}
               onSave={handleSaveConfig}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
           />
 
           {/* Main Content Area */}
           <div className="flex-1 flex overflow-hidden">
-              {/* Left Sidebar - Properties Panel */}
-              <div 
-                  className="flex-shrink-0 bg-neutral-900 border-r border-neutral-800 flex flex-col"
-                  style={{ width: panelWidth }}
-              >
-                  <PropertiesPanel 
-                      settings={propertiesPanelSettings}
-                      onSettingsChange={handleSettingsChange}
-                      selectionVisibility={selectionVisibility}
-                      onVisibilityChange={handleVisibilityChange}
-                      isBaseSettings={!selectedOverrideId}
-                      disabled={isExporting}
-                  />
-              </div>
+              {viewMode === 'youtube' ? (
+                  <YouTubeMock
+                      isPlaying={isPlaying}
+                      onTogglePlay={() => togglePlay(isExporting)}
+                      currentTime={currentTime}
+                      duration={duration}
+                  >
+                       <Canvas 
+                          ref={screenRef}
+                          cameraRef={cameraRef}
+                          videoSrc={screen}
+                          cameraSrc={camera}
+                          interactionsSrc={interactions}
+                          showInteractions={currentFrame.interactions}
+                          currentTime={currentTime}
+                          settings={{
+                              ...currentSettings,
+                              layoutMode: getCurrentLayoutMode()
+                          }}
+                          onTimeUpdate={() => handleTimeUpdate(isExporting)}
+                          onLoadedMetadata={handleLoadedMetadata}
+                      />
+                  </YouTubeMock>
+              ) : (
+                  <>
+                    {/* Left Sidebar - Properties Panel */}
+                    <div 
+                        className="flex-shrink-0 bg-neutral-900 border-r border-neutral-800 flex flex-col"
+                        style={{ width: panelWidth }}
+                    >
+                        <PropertiesPanel 
+                            settings={propertiesPanelSettings}
+                            onSettingsChange={handleSettingsChange}
+                            selectionVisibility={selectionVisibility}
+                            onVisibilityChange={handleVisibilityChange}
+                            isBaseSettings={!selectedOverrideId}
+                            disabled={isExporting}
+                        />
+                    </div>
 
-              {/* Resize Handle for Panel */}
-              <div
-                  className={`w-3 -ml-1.5 cursor-col-resize transition-all z-20 flex items-center justify-center group ${isExporting ? 'pointer-events-none opacity-50' : 'hover:bg-blue-500/10'}`}
-                  onMouseDown={!isExporting ? handlePanelResizeStart : undefined}
-              >
-                  <div className="w-px h-full bg-neutral-800 group-hover:bg-blue-500 transition-colors" />
-              </div>
+                    {/* Resize Handle for Panel */}
+                    <div
+                        className={`w-3 -ml-1.5 cursor-col-resize transition-all z-20 flex items-center justify-center group ${isExporting ? 'pointer-events-none opacity-50' : 'hover:bg-blue-500/10'}`}
+                        onMouseDown={!isExporting ? handlePanelResizeStart : undefined}
+                    >
+                        <div className="w-px h-full bg-neutral-800 group-hover:bg-blue-500 transition-colors" />
+                    </div>
 
-              {/* Canvas Area */}
-          <div className="flex-1 bg-neutral-950 flex items-center justify-center relative overflow-hidden">
-              <Canvas 
-                  ref={screenRef}
-                  cameraRef={cameraRef}
-                  videoSrc={screen}
-                  cameraSrc={camera}
-                  interactionsSrc={interactions}
-                  showInteractions={currentFrame.interactions}
-                  currentTime={currentTime}
-                  settings={{
-                      ...currentSettings,
-                      layoutMode: getCurrentLayoutMode()
-                  }}
-                  onTimeUpdate={() => handleTimeUpdate(isExporting)}
-                  onLoadedMetadata={handleLoadedMetadata}
-              />
-              
-              {/* Audio Element (Hidden) */}
-              <audio 
-                  ref={audioRef} 
-                  src={audio} 
-                  onTimeUpdate={() => handleTimeUpdate(isExporting)}
-                  onLoadedMetadata={handleLoadedMetadata}
-                  onEnded={() => togglePlay(isExporting)}
-              />
+                    {/* Canvas Area */}
+                    <div className="flex-1 bg-neutral-950 flex items-center justify-center relative overflow-hidden">
+                        <Canvas 
+                            ref={screenRef}
+                            cameraRef={cameraRef}
+                            videoSrc={screen}
+                            cameraSrc={camera}
+                            interactionsSrc={interactions}
+                            showInteractions={currentFrame.interactions}
+                            currentTime={currentTime}
+                            settings={{
+                                ...currentSettings,
+                                layoutMode: getCurrentLayoutMode()
+                            }}
+                            onTimeUpdate={() => handleTimeUpdate(isExporting)}
+                            onLoadedMetadata={handleLoadedMetadata}
+                        />
+                    </div>
+                  </>
+              )}
           </div>
-          </div>
 
-          {/* Resize Handle for Timeline */}
-          <div
-              className={`h-1 cursor-row-resize transition-all z-10 ${isExporting ? 'pointer-events-none opacity-50' : 'hover:h-1.5 bg-neutral-800 hover:bg-blue-500'}`}
-              onMouseDown={!isExporting ? handleTimelineResizeStart : undefined}
+          {/* Audio Element (Always Rendered) */}
+          <audio 
+              ref={audioRef} 
+              src={audio} 
+              onTimeUpdate={() => handleTimeUpdate(isExporting)}
+              onLoadedMetadata={handleLoadedMetadata}
+              onEnded={() => togglePlay(isExporting)}
+              className="hidden"
           />
 
-          {/* Bottom Timeline Area */}
-          <div 
-              className="flex-shrink-0 bg-neutral-900 border-t border-neutral-800 flex flex-col"
-              style={{ height: timelineHeight }}
-          >
-              {/* Timeline Controls Toolbar */}
-              <div className={`h-10 border-b border-neutral-800 flex items-center px-4 gap-2 bg-neutral-900 flex-shrink-0 ${isExporting ? 'pointer-events-none opacity-50' : ''}`}>
-                  <button 
-                      onClick={() => togglePlay(isExporting)}
-                      className="p-1.5 hover:bg-neutral-800 rounded-md text-white transition-colors"
-                      title={isPlaying ? "Pause (Space)" : "Play (Space)"}
-                  >
-                      {isPlaying ? <Pause size={16} /> : <Play size={16} />}
-                  </button>
-                  
-                  <span className="text-xs font-mono text-neutral-500 w-10 text-right">{formatTime(currentTime)}</span>
-                  <div className="h-4 w-px bg-neutral-800 mx-2" />
-                  
-                  <div className="h-4 w-px bg-neutral-800 mx-2" />
-                  
-                  {!pendingOverrideStart ? (
-                      <button 
-                          onClick={markOverrideStart}
-                          className="p-1.5 hover:bg-neutral-800 rounded-md text-neutral-400 hover:text-white transition-colors text-xs font-medium flex items-center gap-1"
-                          title="Start Override Range"
-                      >
-                          <div className="w-3 h-3 border-l border-current" /> Start Override
-                      </button>
-                  ) : (
-                      <>
-                          <button 
-                              onClick={completeOverride}
-                              className="p-1.5 bg-blue-600 hover:bg-blue-500 rounded-md text-white transition-colors text-xs font-medium flex items-center gap-1 animate-pulse"
-                              title="Complete Override Range"
-                          >
-                              <div className="w-3 h-3 border-r border-current" /> End Override
-                          </button>
-                          <button 
-                              onClick={cancelOverride}
-                              className="p-1.5 hover:bg-neutral-800 rounded-md text-neutral-400 hover:text-white transition-colors text-xs font-medium"
-                              title="Cancel Override"
-                          >
-                              Cancel
-                          </button>
-                      </>
-                  )}
+          {viewMode === 'studio' && (
+              <>
+                {/* Resize Handle for Timeline */}
+                <div
+                    className={`h-1 cursor-row-resize transition-all z-10 ${isExporting ? 'pointer-events-none opacity-50' : 'hover:h-1.5 bg-neutral-800 hover:bg-blue-500'}`}
+                    onMouseDown={!isExporting ? handleTimelineResizeStart : undefined}
+                />
 
-                  {selectedOverrideId && !pendingOverrideStart && (
-                      <>
-                          <div className="h-4 w-px bg-neutral-800 mx-2" />
-                          <button 
-                              onClick={() => deleteOverride(selectedOverrideId)}
-                              className="p-1.5 hover:bg-red-900/50 text-red-500 hover:text-red-400 rounded-md transition-colors text-xs font-medium flex items-center gap-1"
-                              title="Delete Selected Override"
-                          >
-                              <div className="w-3 h-3 border border-current rounded-sm flex items-center justify-center">
-                                  <div className="w-1.5 h-px bg-current" />
-                              </div>
-                              Delete Override
-                          </button>
-                      </>
-                  )}
-                  <div className="flex-1" />
-                  <span className="text-xs font-mono text-neutral-500 w-10">{formatTime(duration)}</span>
-              </div>
+                {/* Bottom Timeline Area */}
+                <div 
+                    className="flex-shrink-0 bg-neutral-900 border-t border-neutral-800 flex flex-col"
+                    style={{ height: timelineHeight }}
+                >
+                    {/* Timeline Controls Toolbar */}
+                    <div className={`h-10 border-b border-neutral-800 flex items-center px-4 gap-2 bg-neutral-900 flex-shrink-0 ${isExporting ? 'pointer-events-none opacity-50' : ''}`}>
+                        <button 
+                            onClick={() => togglePlay(isExporting)}
+                            className="p-1.5 hover:bg-neutral-800 rounded-md text-white transition-colors"
+                            title={isPlaying ? "Pause (Space)" : "Play (Space)"}
+                        >
+                            {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+                        </button>
+                        
+                        <span className="text-xs font-mono text-neutral-500 w-10 text-right">{formatTime(currentTime)}</span>
+                        <div className="h-4 w-px bg-neutral-800 mx-2" />
+                        
+                        <div className="h-4 w-px bg-neutral-800 mx-2" />
+                        
+                        {!pendingOverrideStart ? (
+                            <button 
+                                onClick={markOverrideStart}
+                                className="p-1.5 hover:bg-neutral-800 rounded-md text-neutral-400 hover:text-white transition-colors text-xs font-medium flex items-center gap-1"
+                                title="Start Override Range"
+                            >
+                                <div className="w-3 h-3 border-l border-current" /> Start Override
+                            </button>
+                        ) : (
+                            <>
+                                <button 
+                                    onClick={completeOverride}
+                                    className="p-1.5 bg-blue-600 hover:bg-blue-500 rounded-md text-white transition-colors text-xs font-medium flex items-center gap-1 animate-pulse"
+                                    title="Complete Override Range"
+                                >
+                                    <div className="w-3 h-3 border-r border-current" /> End Override
+                                </button>
+                                <button 
+                                    onClick={cancelOverride}
+                                    className="p-1.5 hover:bg-neutral-800 rounded-md text-neutral-400 hover:text-white transition-colors text-xs font-medium"
+                                    title="Cancel Override"
+                                >
+                                    Cancel
+                                </button>
+                            </>
+                        )}
 
-              <div className="flex-1 min-h-0 relative">
-                  <Timeline 
-                      timelineData={timelineData}
-                      duration={duration || 100}
-                      currentTime={currentTime}
-                      onSeek={(time) => handleSeek(time, isExporting)}
-                      onHover={handleHover}
-                      overrides={overrides}
-                      baseSettings={baseSettings}
-                      selectedOverrideId={selectedOverrideId}
-                      onOverrideSelect={setSelectedOverrideId}
-                      selectionRange={selectionRange}
-                      onSelectionChange={setSelectionRange}
-                      pendingOverrideStart={pendingOverrideStart}
-                      disabled={isExporting}
-                  />
-              </div>
-          </div>
+                        {selectedOverrideId && !pendingOverrideStart && (
+                            <>
+                                <div className="h-4 w-px bg-neutral-800 mx-2" />
+                                <button 
+                                    onClick={() => deleteOverride(selectedOverrideId)}
+                                    className="p-1.5 hover:bg-red-900/50 text-red-500 hover:text-red-400 rounded-md transition-colors text-xs font-medium flex items-center gap-1"
+                                    title="Delete Selected Override"
+                                >
+                                    <div className="w-3 h-3 border border-current rounded-sm flex items-center justify-center">
+                                        <div className="w-1.5 h-px bg-current" />
+                                    </div>
+                                    Delete Override
+                                </button>
+                            </>
+                        )}
+                        <div className="flex-1" />
+                        <span className="text-xs font-mono text-neutral-500 w-10">{formatTime(duration)}</span>
+                    </div>
+
+                    <div className="flex-1 min-h-0 relative">
+                        <Timeline 
+                            timelineData={timelineData}
+                            duration={duration || 100}
+                            currentTime={currentTime}
+                            onSeek={(time) => handleSeek(time, isExporting)}
+                            onHover={handleHover}
+                            overrides={overrides}
+                            baseSettings={baseSettings}
+                            selectedOverrideId={selectedOverrideId}
+                            onOverrideSelect={setSelectedOverrideId}
+                            selectionRange={selectionRange}
+                            onSelectionChange={setSelectionRange}
+                            pendingOverrideStart={pendingOverrideStart}
+                            disabled={isExporting}
+                        />
+                    </div>
+                </div>
+              </>
+          )}
        </div>
   );
 };
