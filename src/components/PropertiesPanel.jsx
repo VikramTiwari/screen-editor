@@ -1,53 +1,27 @@
 import React from 'react';
-import { Shuffle, Eye, EyeOff, Circle, Square } from 'lucide-react';
+import { Shuffle, Circle, Square, Monitor, Video, MousePointer2 } from 'lucide-react';
 import BackgroundPicker from './BackgroundPicker';
 import { getRandomBackground, SOLIDS } from '../utils/backgrounds';
 
-const Toggle = ({ label, checked, onChange }) => (
-    <div className="flex items-center justify-between group">
-        <label className="text-sm text-neutral-400 group-hover:text-neutral-200 transition-colors cursor-pointer" onClick={() => onChange(!checked)}>
-            {label}
-        </label>
-        <button 
-            onClick={() => onChange(!checked)}
-            className={`w-10 h-5 rounded-full relative transition-colors duration-200 ease-in-out ${
-                checked ? 'bg-blue-600' : 'bg-neutral-700'
-            }`}
-        >
-            <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out ${
-                checked ? 'translate-x-5' : 'translate-x-0'
-            }`} />
-        </button>
-    </div>
-);
 
-const Slider = ({ label, value, min, max, onChange, unit = '' }) => (
+
+const PresetControl = ({ label, value, options, onChange }) => (
     <div className="space-y-2">
-        <div className="flex items-center justify-between">
-            <label className="text-sm text-neutral-400">{label}</label>
-            <span className="text-xs font-mono text-neutral-500 bg-neutral-800 px-1.5 py-0.5 rounded">
-                {value}{unit}
-            </span>
-        </div>
-        <div className="relative h-6 flex items-center group">
-            <div className="absolute w-full h-1 bg-neutral-800 rounded-full overflow-hidden">
-                <div 
-                    className="h-full bg-blue-600 transition-all duration-75"
-                    style={{ width: `${((value - min) / (max - min)) * 100}%` }}
-                />
-            </div>
-            <input 
-                type="range" 
-                min={min} 
-                max={max} 
-                value={value}
-                onChange={(e) => onChange(parseInt(e.target.value))}
-                className="absolute w-full h-full opacity-0 cursor-pointer"
-            />
-            <div 
-                className="absolute w-3 h-3 bg-white rounded-full shadow-md pointer-events-none transition-all duration-75 group-hover:scale-125"
-                style={{ left: `${((value - min) / (max - min)) * 100}%`, transform: 'translateX(-50%)' }}
-            />
+        <label className="text-sm text-neutral-400">{label}</label>
+        <div className="grid grid-cols-4 gap-2">
+            {options.map((option) => (
+                <button
+                    key={option.value}
+                    onClick={() => onChange(option.value)}
+                    className={`h-8 rounded text-xs font-medium transition-colors border border-transparent cursor-pointer ${
+                        value === option.value
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-white hover:border-neutral-700'
+                    }`}
+                >
+                    {option.label}
+                </button>
+            ))}
         </div>
     </div>
 );
@@ -87,22 +61,42 @@ const PropertiesPanel = ({ settings, onSettingsChange, selectionVisibility, onVi
       {selectionVisibility && (
           <div>
             <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-4">Visibility</h3>
-            <div className="space-y-4">
-                <Toggle 
-                    label="Screen" 
-                    checked={selectionVisibility.screen} 
-                    onChange={(checked) => onVisibilityChange('screen', checked)} 
-                />
-                <Toggle 
-                    label="Camera" 
-                    checked={selectionVisibility.camera} 
-                    onChange={(checked) => onVisibilityChange('camera', checked)} 
-                />
-                <Toggle 
-                    label="Interactions" 
-                    checked={settings.showInteractions ?? true} 
-                    onChange={(checked) => onSettingsChange({ ...settings, showInteractions: checked })} 
-                />
+            <div className="flex items-center gap-2 bg-neutral-900 p-1 rounded-lg border border-neutral-800">
+                <button
+                    onClick={() => onVisibilityChange('screen', !selectionVisibility.screen)}
+                    className={`flex-1 p-2 rounded flex items-center justify-center transition-colors cursor-pointer ${
+                        selectionVisibility.screen 
+                            ? 'bg-blue-600 text-white shadow-sm' 
+                            : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800'
+                    }`}
+                    title="Toggle Screen"
+                >
+                    <Monitor size={18} />
+                </button>
+                <div className="w-px h-6 bg-neutral-800" />
+                <button
+                    onClick={() => onVisibilityChange('camera', !selectionVisibility.camera)}
+                    className={`flex-1 p-2 rounded flex items-center justify-center transition-colors cursor-pointer ${
+                        selectionVisibility.camera 
+                            ? 'bg-blue-600 text-white shadow-sm' 
+                            : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800'
+                    }`}
+                    title="Toggle Camera"
+                >
+                    <Video size={18} />
+                </button>
+                <div className="w-px h-6 bg-neutral-800" />
+                <button
+                    onClick={() => onSettingsChange({ ...settings, showInteractions: !(settings.showInteractions ?? true) })}
+                    className={`flex-1 p-2 rounded flex items-center justify-center transition-colors cursor-pointer ${
+                        (settings.showInteractions ?? true)
+                            ? 'bg-blue-600 text-white shadow-sm' 
+                            : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800'
+                    }`}
+                    title="Toggle Interactions"
+                >
+                    <MousePointer2 size={18} />
+                </button>
             </div>
           </div>
       )}
@@ -113,13 +107,13 @@ const PropertiesPanel = ({ settings, onSettingsChange, selectionVisibility, onVi
             <div className="flex items-center gap-1">
                 <button
                     onClick={() => setShowBackgroundDetails(!showBackgroundDetails)}
-                    className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded transition-colors"
+                    className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded transition-colors cursor-pointer"
                 >
                     {showBackgroundDetails ? 'Hide' : 'Customize'}
                 </button>
                 <button
                     onClick={() => onSettingsChange({ ...settings, ...getRandomBackground() })}
-                    className="p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-md transition-colors"
+                    className="p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-md transition-colors cursor-pointer"
                     title="Randomize Background"
                 >
                     <Shuffle size={14} />
@@ -136,12 +130,16 @@ const PropertiesPanel = ({ settings, onSettingsChange, selectionVisibility, onVi
                     />
                     {settings.backgroundColor.includes('data:image/svg+xml') && (
                         <div className="space-y-4 mt-2 p-3 bg-neutral-900/50 rounded-lg border border-neutral-800">
-                            <Slider 
+                            <PresetControl 
                                 label="Pattern Scale" 
-                                value={settings.backgroundScale || 100} 
-                                min={10} 
-                                max={500} 
-                                onChange={(val) => handleChange('backgroundScale', val)} 
+                                value={settings.backgroundScale || 100}
+                                onChange={(val) => handleChange('backgroundScale', val)}
+                                options={[
+                                    { label: '50%', value: 50 },
+                                    { label: '100%', value: 100 },
+                                    { label: '200%', value: 200 },
+                                    { label: '400%', value: 400 },
+                                ]}
                             />
                             
                             <div>
@@ -151,7 +149,7 @@ const PropertiesPanel = ({ settings, onSettingsChange, selectionVisibility, onVi
                                         <button
                                             key={color}
                                             onClick={() => handleChange('backgroundColor', setPatternColor(settings.backgroundColor, color))}
-                                            className={`w-6 h-6 rounded-full border border-neutral-700 hover:scale-110 transition-transform ${
+                                            className={`w-6 h-6 rounded-full border border-neutral-700 hover:scale-110 transition-transform cursor-pointer ${
                                                 getPatternColor(settings.backgroundColor).toLowerCase() === color.toLowerCase() 
                                                     ? 'ring-2 ring-white ring-offset-2 ring-offset-neutral-900' 
                                                     : ''
@@ -167,132 +165,145 @@ const PropertiesPanel = ({ settings, onSettingsChange, selectionVisibility, onVi
             </div>
         )}
         
-        <Slider 
+        <PresetControl 
             label="Padding" 
-            value={settings.padding} 
-            min={0} 
-            max={100} 
-            onChange={(val) => handleChange('padding', val)} 
-            unit="px"
+            value={settings.padding}
+            onChange={(val) => handleChange('padding', val)}
+            options={[
+                { label: 'None', value: 0 },
+                { label: 'XS', value: 16 },
+                { label: 'S', value: 32 },
+                { label: 'M', value: 64 },
+                { label: 'L', value: 96 },
+            ]}
         />
       </div>
 
-      <div>
-        <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-4">Container</h3>
-        <div className="space-y-4">
-            <Slider 
-                label="Border Radius" 
-                value={settings.borderRadius} 
-                min={0} 
-                max={50} 
-                onChange={(val) => handleChange('borderRadius', val)} 
-                unit="px"
-            />
-            <Slider 
-                label="Shadow" 
-                value={settings.shadow} 
-                min={0} 
-                max={100} 
-                onChange={(val) => handleChange('shadow', val)} 
-                unit="px"
-            />
+      {(!selectionVisibility || selectionVisibility.screen) && (
+        <div>
+            <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-4">Screen</h3>
+            <div className="space-y-4">
+                <PresetControl 
+                    label="Corner Radius" 
+                    value={settings.borderRadius}
+                    onChange={(val) => handleChange('borderRadius', val)}
+                    options={[
+                        { label: 'XS', value: 4 },
+                        { label: 'S', value: 12 },
+                        { label: 'M', value: 24 },
+                        { label: 'L', value: 40 },
+                    ]}
+                />
+                <PresetControl 
+                    label="Shadow" 
+                    value={settings.shadow}
+                    onChange={(val) => handleChange('shadow', val)}
+                    options={[
+                        { label: 'None', value: 0 },
+                        { label: 'Soft', value: 20 },
+                        { label: 'Med', value: 50 },
+                        { label: 'High', value: 100 },
+                    ]}
+                />
+            </div>
         </div>
-      </div>
+      )}
 
-      <div>
-        <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-4">Camera</h3>
-        <div className="space-y-4">
-            <Toggle 
-                label="Show Camera" 
-                checked={settings.showCamera} 
-                onChange={(checked) => handleChange('showCamera', checked)} 
-            />
-            
-            {settings.showCamera && (
-                <div className="space-y-4 pl-3 border-l-2 border-neutral-800 ml-1">
-                    <Slider 
-                        label="Size" 
-                        value={settings.cameraSize} 
-                        min={100} 
-                        max={400} 
-                        onChange={(val) => handleChange('cameraSize', val)} 
-                        unit="px"
-                    />
-                    
-                    <div className="flex items-center justify-between">
-                        <label className="text-sm text-neutral-400">Position</label>
-                        <div className="grid grid-cols-2 gap-1 w-20">
-                            {[
-                                { value: 'top-left', label: 'TL' },
-                                { value: 'top-right', label: 'TR' },
-                                { value: 'bottom-left', label: 'BL' },
-                                { value: 'bottom-right', label: 'BR' }
-                            ].map((pos) => (
-                                <button
-                                    key={pos.value}
-                                    onClick={() => handleChange('cameraPosition', pos.value)}
-                                    className={`h-8 rounded text-xs font-medium transition-colors ${
-                                        settings.cameraPosition === pos.value 
-                                            ? 'bg-blue-600 text-white' 
-                                            : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-white'
-                                    }`}
-                                    title={pos.value.replace('-', ' ')}
-                                >
-                                    <div className="w-full h-full flex items-center justify-center relative">
-                                        <div className={`absolute w-1.5 h-1.5 bg-current rounded-sm ${
-                                            pos.value.includes('top') ? 'top-1.5' : 'bottom-1.5'
-                                        } ${
-                                            pos.value.includes('left') ? 'left-1.5' : 'right-1.5'
-                                        }`} />
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                        <label className="text-sm text-neutral-400">Shape</label>
-                        <div className="flex bg-neutral-800 rounded p-1 gap-1">
-                            <button 
-                                onClick={() => handleChange('cameraShape', 'rectangle')}
-                                className={`p-1.5 rounded transition-colors ${settings.cameraShape === 'rectangle' ? 'bg-neutral-600 text-white' : 'text-neutral-400 hover:text-white'}`}
-                                title="Rectangle"
+      {(!selectionVisibility || selectionVisibility.camera) && (
+        <div>
+            <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-4">Camera</h3>
+            <div className="space-y-4">
+                <PresetControl 
+                    label="Size" 
+                    value={settings.cameraSize}
+                    onChange={(val) => handleChange('cameraSize', val)}
+                    options={[
+                        { label: 'S', value: 150 },
+                        { label: 'M', value: 200 },
+                        { label: 'L', value: 300 },
+                        { label: 'XL', value: 400 },
+                    ]}
+                />
+                
+                <div className="flex items-center justify-between">
+                    <label className="text-sm text-neutral-400">Position</label>
+                    <div className="grid grid-cols-2 gap-1 w-20">
+                        {[
+                            { value: 'top-left', label: 'TL' },
+                            { value: 'top-right', label: 'TR' },
+                            { value: 'bottom-left', label: 'BL' },
+                            { value: 'bottom-right', label: 'BR' }
+                        ].map((pos) => (
+                            <button
+                                key={pos.value}
+                                onClick={() => handleChange('cameraPosition', pos.value)}
+                                className={`h-8 rounded text-xs font-medium transition-colors cursor-pointer ${
+                                    settings.cameraPosition === pos.value 
+                                        ? 'bg-blue-600 text-white' 
+                                        : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-white'
+                                }`}
+                                title={pos.value.replace('-', ' ')}
                             >
-                                <Square size={14} />
+                                <div className="w-full h-full flex items-center justify-center relative">
+                                    <div className={`absolute w-1.5 h-1.5 bg-current rounded-sm ${
+                                        pos.value.includes('top') ? 'top-1.5' : 'bottom-1.5'
+                                    } ${
+                                        pos.value.includes('left') ? 'left-1.5' : 'right-1.5'
+                                    }`} />
+                                </div>
                             </button>
-                            <button 
-                                onClick={() => handleChange('cameraShape', 'circle')}
-                                className={`p-1.5 rounded transition-colors ${settings.cameraShape === 'circle' ? 'bg-neutral-600 text-white' : 'text-neutral-400 hover:text-white'}`}
-                                title="Circle"
-                            >
-                                <Circle size={14} />
-                            </button>
-                        </div>
+                        ))}
                     </div>
-
-                    {settings.cameraShape === 'rectangle' && (
-                        <Slider 
-                            label="Corner Radius" 
-                            value={settings.cameraBorderRadius} 
-                            min={0} 
-                            max={50} 
-                            onChange={(val) => handleChange('cameraBorderRadius', val)} 
-                            unit="px"
-                        />
-                    )}
-
-                    <Slider 
-                        label="Shadow" 
-                        value={settings.cameraShadow} 
-                        min={0} 
-                        max={100} 
-                        onChange={(val) => handleChange('cameraShadow', val)} 
-                        unit="px"
-                    />
                 </div>
-            )}
+                
+                <div className="flex items-center justify-between">
+                    <label className="text-sm text-neutral-400">Shape</label>
+                    <div className="flex bg-neutral-800 rounded p-1 gap-1">
+                        <button 
+                            onClick={() => handleChange('cameraShape', 'rectangle')}
+                            className={`p-1.5 rounded transition-colors cursor-pointer ${settings.cameraShape === 'rectangle' ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-white'}`}
+                            title="Rectangle"
+                        >
+                            <Square size={14} />
+                        </button>
+                        <button 
+                            onClick={() => handleChange('cameraShape', 'circle')}
+                            className={`p-1.5 rounded transition-colors cursor-pointer ${settings.cameraShape === 'circle' ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-white'}`}
+                            title="Circle"
+                        >
+                            <Circle size={14} />
+                        </button>
+                    </div>
+                </div>
+
+                {settings.cameraShape === 'rectangle' && (
+                    <PresetControl 
+                        label="Corner Radius" 
+                        value={settings.cameraBorderRadius}
+                        onChange={(val) => handleChange('cameraBorderRadius', val)}
+                        options={[
+                            { label: 'XS', value: 4 },
+                            { label: 'S', value: 12 },
+                            { label: 'M', value: 24 },
+                            { label: 'L', value: 40 },
+                        ]}
+                    />
+                )}
+
+                <PresetControl 
+                    label="Shadow" 
+                    value={settings.cameraShadow}
+                    onChange={(val) => handleChange('cameraShadow', val)}
+                    options={[
+                        { label: 'None', value: 0 },
+                        { label: 'Soft', value: 20 },
+                        { label: 'Med', value: 50 },
+                        { label: 'High', value: 100 },
+                    ]}
+                />
+            </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

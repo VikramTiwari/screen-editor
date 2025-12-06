@@ -11,9 +11,20 @@ const Canvas = forwardRef(({
     settings, 
     onTimeUpdate, 
     onLoadedMetadata,
-    cameraRef
+    cameraRef,
+    isEmbedded = false
 }, ref) => {
   
+    const [videoRatio, setVideoRatio] = React.useState(16/9);
+  
+    const handleVideoLoad = (e) => {
+        const { videoWidth, videoHeight } = e.target;
+        if (videoWidth && videoHeight) {
+            setVideoRatio(videoWidth / videoHeight);
+        }
+        if (onLoadedMetadata) onLoadedMetadata(e);
+    };
+
   const getCameraPositionStyle = () => {
       const margin = 20;
       switch(settings.cameraPosition) {
@@ -66,8 +77,8 @@ const Canvas = forwardRef(({
     }
 
     return (
-    <div className="flex-1 bg-black overflow-hidden flex items-center justify-center">
-      <div className="w-auto h-auto max-w-5xl max-h-[80vh] aspect-[16/10] bg-neutral-900 flex items-center justify-center p-8 shadow-2xl rounded-2xl border border-neutral-800">
+    <div className={isEmbedded ? "w-full h-full overflow-hidden relative" : "flex-1 bg-black overflow-hidden flex items-center justify-center"}>
+      <div className={isEmbedded ? "w-full h-full" : "w-auto h-auto max-w-full max-h-[80vh] aspect-video flex items-center justify-center ring-1 ring-neutral-700 shadow-2xl"}>
         <div 
             className="w-full h-full flex items-center justify-center transition-all duration-200"
             style={{ 
@@ -85,10 +96,11 @@ const Canvas = forwardRef(({
                 }}
             >
                 <div 
-                    className="relative overflow-hidden bg-black w-full h-full"
+                    className="relative overflow-hidden max-w-full max-h-full w-auto h-auto"
                     style={{ 
-                        borderRadius: `${settings.borderRadius}px`,
-                        boxShadow: `0 ${settings.shadow}px ${settings.shadow * 2}px rgba(0,0,0,0.5)`
+                        aspectRatio: videoRatio,
+                        borderRadius: settings.padding === 0 ? 0 : `${settings.borderRadius}px`,
+                        boxShadow: settings.padding === 0 ? 'none' : `0 ${settings.shadow}px ${settings.shadow * 2}px rgba(0,0,0,0.5)`
                     }}
                 >
                     {/* Main Video */}
@@ -122,8 +134,8 @@ const Canvas = forwardRef(({
                             src={mainVideoSrc}
                             isMuted={true}
                             onTimeUpdate={mainVideoRef === ref ? onTimeUpdate : undefined}
-                            onLoadedMetadata={mainVideoRef === ref ? onLoadedMetadata : undefined}
-                            className="!border-none !rounded-none w-full h-full" 
+                            onLoadedMetadata={mainVideoRef === ref ? handleVideoLoad : undefined}
+                            className="!border-0 !border-transparent !rounded-none w-full h-full !bg-transparent" 
                         />
                         
                         <InteractionVisualizer src={interactionsSrc} currentTime={currentTime} />
