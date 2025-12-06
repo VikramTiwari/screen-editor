@@ -174,7 +174,7 @@ const PropertiesPanel = ({
             </div>
         )}
         
-        <PresetControl 
+      <PresetControl 
             label="Padding" 
             value={settings.padding}
             onChange={(val) => handleChange('padding', val)}
@@ -186,6 +186,27 @@ const PropertiesPanel = ({
                 { label: 'L', value: 96 },
             ]}
         />
+        
+        {isBaseSettings && (
+             <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                    <label className="text-sm text-neutral-400">Audio Offset</label>
+                    <span className="text-xs text-neutral-500 font-mono">{(settings.audioOffset || 0).toFixed(1)}s</span>
+                </div>
+                <input 
+                    type="range" 
+                    min="-5" 
+                    max="5" 
+                    step="0.1"
+                    value={settings.audioOffset || 0}
+                    onChange={(e) => handleChange('audioOffset', parseFloat(e.target.value))}
+                    className="w-full"
+                />
+                <p className="text-[10px] text-neutral-600">
+                    Positive delays audio, negative advances it.
+                </p>
+             </div>
+        )}
       </div>
       
       {/* Zoom Controls */}

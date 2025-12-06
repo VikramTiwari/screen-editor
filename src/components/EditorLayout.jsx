@@ -123,13 +123,13 @@ const EditorLayout = () => {
   }, [interactions, duration, applyAutoZoomOverrides, screenRef]);
 
   // Auto-generate zoom overrides when interactions are loaded
-  useEffect(() => {
-      if (interactions && duration > 0) {
-          // Check if we already have auto-zoom overrides to avoid re-generating?
-          // For now, just run it once.
-          handleAutoZoom();
-      }
-  }, [interactions, duration, handleAutoZoom]);
+  // useEffect(() => {
+  //     if (interactions && duration > 0) {
+  //         // Check if we already have auto-zoom overrides to avoid re-generating?
+  //         // For now, just run it once.
+  //         handleAutoZoom();
+  //     }
+  // }, [interactions, duration, handleAutoZoom]);
 
   const [panelWidth, setPanelWidth] = useState(320);
   const [timelineHeight, setTimelineHeight] = useState(450);
@@ -334,6 +334,7 @@ const EditorLayout = () => {
                         onCancelOverride={cancelOverride}
                         selectedOverrideId={selectedOverrideId}
                         onDeleteOverride={deleteOverride}
+                        onAutoZoom={handleAutoZoom}
                     />
 
                     <div className="flex-1 min-h-0 relative">
