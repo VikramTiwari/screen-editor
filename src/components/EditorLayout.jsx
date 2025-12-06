@@ -60,7 +60,10 @@ const EditorLayout = () => {
       handleSeek,
       applyAutoZoomOverrides,
       setOverrides,
-      setBaseSettings
+      setBaseSettings,
+      isSettingFocalPoint,
+      toggleFocalPointMode,
+      handleFocalPointChange
   } = useEditorState({
       defaultSettings: DEFAULT_SETTINGS
   });
@@ -275,6 +278,8 @@ const EditorLayout = () => {
               selectionVisibility={selectionVisibility}
               onVisibilityChange={handleVisibilityChange}
               selectedOverrideId={selectedOverrideId}
+              isSettingFocalPoint={isSettingFocalPoint}
+              onToggleFocalPointMode={toggleFocalPointMode}
               isPlaying={isPlaying}
               onTogglePlay={() => togglePlay(isExporting)}
               screenRef={screenRef}
@@ -289,6 +294,8 @@ const EditorLayout = () => {
               getCurrentLayoutMode={getCurrentLayoutMode}
               handleTimeUpdate={() => handleTimeUpdate(isExporting)}
               handleLoadedMetadata={handleLoadedMetadata}
+              isSettingFocalPoint={isSettingFocalPoint}
+              onFocalPointSelect={handleFocalPointChange}
           />
 
           {/* Audio Element (Always Rendered) */}

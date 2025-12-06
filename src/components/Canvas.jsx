@@ -12,7 +12,9 @@ const Canvas = forwardRef(({
     onTimeUpdate, 
     onLoadedMetadata,
     cameraRef,
-    isEmbedded = false
+    isEmbedded = false,
+    onFocalPointSelect,
+    isSettingFocalPoint
 }, ref) => {
   
     const [videoRatio, setVideoRatio] = React.useState(16/9);
@@ -106,28 +108,41 @@ const Canvas = forwardRef(({
                     {/* Main Video */}
                     <div 
                         className="w-full h-full transition-transform duration-500 ease-in-out"
-                        style={{
-                            transform: (() => {
-                                const zoom = settings.zoomScale || 1;
-                                const fx = settings.focalPointX !== undefined ? settings.focalPointX : 50;
-                                const fy = settings.focalPointY !== undefined ? settings.focalPointY : 50;
-                                
-                                // Calculate raw translation to center the focal point
-                                let tx = 50 - (fx * zoom);
-                                let ty = 50 - (fy * zoom);
+                            style={{
+                                transform: (() => {
+                                    // If setting focal point, force zoom to 1 to show full context
+                                    const zoom = isSettingFocalPoint ? 1 : (settings.zoomScale || 1);
+                                    const fx = settings.focalPointX !== undefined ? settings.focalPointX : 50;
+                                    const fy = settings.focalPointY !== undefined ? settings.focalPointY : 50;
+                                    
+                                    // Calculate raw translation to center the focal point
+                                    let tx = 50 - (fx * zoom);
+                                    let ty = 50 - (fy * zoom);
 
-                                // Clamp values to ensure we don't show black bars
-                                // The translation must be between 100*(1-zoom) and 0
-                                const minTranslate = 100 * (1 - zoom);
-                                const maxTranslate = 0;
+                                    // Clamp values to ensure we don't show black bars
+                                    // The translation must be between 100*(1-zoom) and 0
+                                    const minTranslate = 100 * (1 - zoom);
+                                    const maxTranslate = 0;
 
-                                tx = Math.min(maxTranslate, Math.max(minTranslate, tx));
-                                ty = Math.min(maxTranslate, Math.max(minTranslate, ty));
+                                    tx = Math.min(maxTranslate, Math.max(minTranslate, tx));
+                                    ty = Math.min(maxTranslate, Math.max(minTranslate, ty));
 
-                                return `translate(${tx}%, ${ty}%) scale(${zoom})`;
-                            })(),
-                            transformOrigin: '0 0'
-                        }}
+                                    return `translate(${tx}%, ${ty}%) scale(${zoom})`;
+                                })(),
+                                transformOrigin: '0 0',
+                                cursor: isSettingFocalPoint ? 'crosshair' : 'default'
+                            }}
+                            onClick={(e) => {
+                                if (isSettingFocalPoint && onFocalPointSelect) {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const x = ((e.clientX - rect.left) / rect.width) * 100;
+                                    const y = ((e.clientY - rect.top) / rect.height) * 100;
+                                    // Clamp to 0-100
+                                    const clampedX = Math.max(0, Math.min(100, x));
+                                    const clampedY = Math.max(0, Math.min(100, y));
+                                    onFocalPointSelect(clampedX, clampedY);
+                                }
+                            }}
                     >
                         <VideoPlayer 
                             ref={mainVideoRef}

@@ -29,7 +29,9 @@ const EditorMainContent = ({
     currentSettings,
     getCurrentLayoutMode,
     handleTimeUpdate,
-    handleLoadedMetadata
+    handleLoadedMetadata,
+    isSettingFocalPoint,
+    onFocalPointSelect
 }) => (
     <div className="flex-1 flex overflow-hidden">
         {viewMode === 'youtube' ? (
@@ -54,6 +56,8 @@ const EditorMainContent = ({
                     }}
                     onTimeUpdate={handleTimeUpdate}
                     onLoadedMetadata={handleLoadedMetadata}
+                    isSettingFocalPoint={isSettingFocalPoint}
+                    onFocalPointSelect={onFocalPointSelect}
                 />
             </YouTubeMock>
         ) : (
@@ -97,6 +101,8 @@ const EditorMainContent = ({
                         }}
                         onTimeUpdate={handleTimeUpdate}
                         onLoadedMetadata={handleLoadedMetadata}
+                        isSettingFocalPoint={isSettingFocalPoint}
+                        onFocalPointSelect={onFocalPointSelect}
                     />
                 </div>
             </>

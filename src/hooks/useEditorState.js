@@ -305,6 +305,21 @@ export const useEditorState = () => {
       });
   }, []);
 
+  // Focal Point Mode
+  const [isSettingFocalPoint, setIsSettingFocalPoint] = useState(false);
+
+  const toggleFocalPointMode = useCallback(() => {
+      setIsSettingFocalPoint(prev => !prev);
+  }, []);
+
+  const handleFocalPointChange = useCallback((x, y) => {
+      handleSettingsChange({ 
+          focalPointX: Math.round(x), 
+          focalPointY: Math.round(y) 
+      });
+      setIsSettingFocalPoint(false);
+  }, [handleSettingsChange]);
+
   return {
       isPlaying,
       currentTime,
@@ -339,6 +354,9 @@ export const useEditorState = () => {
       handleSeek,
       applyAutoZoomOverrides,
       setOverrides,
-      setBaseSettings
+      setBaseSettings,
+      isSettingFocalPoint,
+      toggleFocalPointMode,
+      handleFocalPointChange
   };
 };
