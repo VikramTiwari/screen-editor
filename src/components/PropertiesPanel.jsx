@@ -66,7 +66,7 @@ const PropertiesPanel = ({ settings, onSettingsChange, selectionVisibility, onVi
                     onClick={() => onVisibilityChange('screen', !selectionVisibility.screen)}
                     className={`flex-1 p-2 rounded flex items-center justify-center transition-colors cursor-pointer ${
                         selectionVisibility.screen 
-                            ? 'bg-neutral-700 text-white shadow-sm' 
+                            ? 'bg-blue-600 text-white shadow-sm' 
                             : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800'
                     }`}
                     title="Toggle Screen"
@@ -78,7 +78,7 @@ const PropertiesPanel = ({ settings, onSettingsChange, selectionVisibility, onVi
                     onClick={() => onVisibilityChange('camera', !selectionVisibility.camera)}
                     className={`flex-1 p-2 rounded flex items-center justify-center transition-colors cursor-pointer ${
                         selectionVisibility.camera 
-                            ? 'bg-neutral-700 text-white shadow-sm' 
+                            ? 'bg-blue-600 text-white shadow-sm' 
                             : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800'
                     }`}
                     title="Toggle Camera"
@@ -90,7 +90,7 @@ const PropertiesPanel = ({ settings, onSettingsChange, selectionVisibility, onVi
                     onClick={() => onSettingsChange({ ...settings, showInteractions: !(settings.showInteractions ?? true) })}
                     className={`flex-1 p-2 rounded flex items-center justify-center transition-colors cursor-pointer ${
                         (settings.showInteractions ?? true)
-                            ? 'bg-neutral-700 text-white shadow-sm' 
+                            ? 'bg-blue-600 text-white shadow-sm' 
                             : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800'
                     }`}
                     title="Toggle Interactions"
@@ -170,6 +170,7 @@ const PropertiesPanel = ({ settings, onSettingsChange, selectionVisibility, onVi
             value={settings.padding}
             onChange={(val) => handleChange('padding', val)}
             options={[
+                { label: 'None', value: 0 },
                 { label: 'XS', value: 16 },
                 { label: 'S', value: 32 },
                 { label: 'M', value: 64 },
@@ -260,14 +261,14 @@ const PropertiesPanel = ({ settings, onSettingsChange, selectionVisibility, onVi
                     <div className="flex bg-neutral-800 rounded p-1 gap-1">
                         <button 
                             onClick={() => handleChange('cameraShape', 'rectangle')}
-                            className={`p-1.5 rounded transition-colors cursor-pointer ${settings.cameraShape === 'rectangle' ? 'bg-neutral-600 text-white' : 'text-neutral-400 hover:text-white'}`}
+                            className={`p-1.5 rounded transition-colors cursor-pointer ${settings.cameraShape === 'rectangle' ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-white'}`}
                             title="Rectangle"
                         >
                             <Square size={14} />
                         </button>
                         <button 
                             onClick={() => handleChange('cameraShape', 'circle')}
-                            className={`p-1.5 rounded transition-colors cursor-pointer ${settings.cameraShape === 'circle' ? 'bg-neutral-600 text-white' : 'text-neutral-400 hover:text-white'}`}
+                            className={`p-1.5 rounded transition-colors cursor-pointer ${settings.cameraShape === 'circle' ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-white'}`}
                             title="Circle"
                         >
                             <Circle size={14} />

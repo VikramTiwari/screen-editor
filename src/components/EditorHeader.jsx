@@ -1,12 +1,12 @@
 import React from 'react';
 import { Download } from 'lucide-react';
 
-const EditorHeader = ({ isExporting, exportProgress, loading, error, onExport, onSave, viewMode, onViewModeChange }) => {
+const EditorHeader = ({ isExporting, exportProgress, loading, error, onExport, viewMode, onViewModeChange }) => {
   return (
     <header className="h-14 border-b border-neutral-800 flex items-center px-4 justify-between bg-neutral-950 z-10 relative">
       <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold">S</div>
-          <h1 className="font-bold text-sm tracking-tight">Untitled Project</h1>
+          <h1 className="font-bold text-sm tracking-tight">New Project</h1>
       </div>
       
       {/* View Mode Selector */}
@@ -38,17 +38,9 @@ const EditorHeader = ({ isExporting, exportProgress, loading, error, onExport, o
           {error && <span className="text-xs text-red-500">{error}</span>}
           
           <button 
-              onClick={onSave}
-              disabled={isExporting}
-              className="bg-neutral-800 text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-neutral-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-              <Download size={16} /> Save Config
-          </button>
-
-          <button 
               onClick={onExport}
               disabled={isExporting || loading}
-              className="bg-white text-black px-4 py-1.5 rounded-md text-sm font-medium hover:bg-neutral-200 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-white text-black px-4 py-1.5 rounded-md text-sm font-medium hover:bg-neutral-200 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
               <Download size={16} /> {isExporting ? `Exporting ${Math.round(exportProgress)}%` : 'Export'}
           </button>

@@ -53,7 +53,7 @@ export const useEditorState = () => {
           // If multiple overrides overlap, the last one in the array takes precedence
           const activeOverride = overrides.find(o => i >= o.start && i < o.end);
           
-          const currentSettings = activeOverride ? activeOverride.settings : baseSettings;
+          const currentSettings = activeOverride ? { ...baseSettings, ...activeOverride.settings } : baseSettings;
           
           data[i] = {
               screen: currentSettings.showScreen ?? true,
@@ -70,7 +70,7 @@ export const useEditorState = () => {
   const getCurrentFrameData = () => {
       const time = hoverTime !== null ? hoverTime : currentTime;
       const activeOverride = overrides.find(o => time >= o.start && time < o.end);
-      const settings = activeOverride ? activeOverride.settings : baseSettings;
+      const settings = activeOverride ? { ...baseSettings, ...activeOverride.settings } : baseSettings;
       
       return {
           screen: settings.showScreen ?? true,
