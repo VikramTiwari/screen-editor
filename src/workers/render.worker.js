@@ -12,6 +12,8 @@ let scaleFactor = 2;
 let output = null;
 let videoSource = null;
 let audioSource = null;
+let audioGenerator = null;
+let audioWriter = null;
 
 const ZOOM_LERP = 0.15;
 const CAM_LERP = 0.3;
@@ -91,7 +93,7 @@ self.onmessage = async (e) => {
     const { type, payload } = e.data;
 
     if (type === 'INIT') {
-        const { canvas, settings, interactionsData, backgroundImage, config, audioStream } = payload;
+        const { canvas, settings, interactionsData, backgroundImage, config, audioBuffers } = payload;
         
         if (canvas) {
             ctx = canvas.getContext('2d', {
@@ -120,8 +122,8 @@ self.onmessage = async (e) => {
 
         // Add Video Track
         videoSource = new CanvasSource(canvas, {
-            codec: 'vp9', // 'vp9' is standard
-            bitrate: 60_000_000, // 60 Mbps
+            codec: 'vp9', 
+            bitrate: 60_000_000, 
             width: width,
             height: height
         });
@@ -129,20 +131,52 @@ self.onmessage = async (e) => {
         output.addVideoTrack(videoSource, { frameRate: 60 });
         
         // Add Audio Track if available
-        if (audioStream && self.MediaStreamTrackGenerator) {
-            const generator = new MediaStreamTrackGenerator({ kind: 'audio' });
-            audioStream.pipeTo(generator.writable);
-            
-            audioSource = new MediaStreamAudioTrackSource(generator, {
+        if (audioBuffers && audioBuffers.length > 0 && self.MediaStreamTrackGenerator) {
+             audioGenerator = new MediaStreamTrackGenerator({ kind: 'audio' });
+             audioWriter = audioGenerator.writable.getWriter();
+             
+             audioSource = new MediaStreamAudioTrackSource(audioGenerator, {
                 codec: 'opus',
                 bitrate: 128_000,
-                numberOfChannels: 2,
+                numberOfChannels: 1, // Mono logic
                 sampleRate: 48000
-            });
-            output.addAudioTrack(audioSource);
+             });
+             output.addAudioTrack(audioSource);
         }
         
         await output.start();
+
+        // Feed Audio Data immediately (Offline)
+        if (audioBuffers && audioWriter) {
+            for (const buff of audioBuffers) {
+                const floats = buff.data; // Float32Array
+                const sr = buff.sampleRate;
+                const offset = buff.offset || 0;
+                
+                const CHUNK_DURATION = 0.1; // 100ms chunks
+                const samplesPerChunk = Math.floor(sr * CHUNK_DURATION);
+                
+                for (let i = 0; i < floats.length; i += samplesPerChunk) {
+                    const chunkData = floats.slice(i, i + samplesPerChunk);
+                    const timestampMicro = Math.round((offset + (i / sr)) * 1_000_000);
+                    
+                    const audioData = new AudioData({
+                        format: 'f32',
+                        sampleRate: sr,
+                        numberOfFrames: chunkData.length,
+                        numberOfChannels: 1,
+                        timestamp: timestampMicro,
+                        data: chunkData
+                    });
+                    
+                    await audioWriter.write(audioData);
+                    audioData.close();
+                }
+            }
+            // Do NOT close audioWriter yet? If we close it, track might end.
+            // But we have fed everything.
+            // audioWriter.close(); 
+        }
     }
 
     if (type === 'RENDER_FRAME') {

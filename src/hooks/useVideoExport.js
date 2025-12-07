@@ -1,10 +1,11 @@
+
 import { useState, useRef, useEffect } from 'react';
 
 
 export const useVideoExport = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState(0);
-
+  
   const canvasRef = useRef(null);
   const animationFrameRef = useRef(null);
   const workerRef = useRef(null);
@@ -69,7 +70,8 @@ export const useVideoExport = () => {
         }
     }
 
-    // 2. Setup Audio for Worker (if needed)
+    // --- REALTIME AUDIO STREAM SETUP ---
+    let audioStream = null;
     let exportAudio = null;
     let exportAudioContext = null;
     let audioTrack = null;
@@ -77,27 +79,75 @@ export const useVideoExport = () => {
     // Audio Offset Logic
     const audioOffset = baseSettings.audioOffset || 0;
 
-    if (audioElement) {
-        exportAudio = audioElement.cloneNode(true);
-        exportAudio.crossOrigin = "anonymous";
-        
-        exportAudioContext = new AudioContext();
-        const dest = exportAudioContext.createMediaStreamDestination();
-        const source = exportAudioContext.createMediaElementSource(exportAudio);
-        
-        if (audioOffset > 0) {
-            const delayNode = exportAudioContext.createDelay(Math.max(1.0, audioOffset + 1.0));
-            delayNode.delayTime.value = audioOffset;
-            source.connect(delayNode);
-            delayNode.connect(dest);
-        } else {
-            source.connect(dest);
-        }
-        
-        const audioTracks = dest.stream.getAudioTracks();
-        if (audioTracks.length > 0) {
-            audioTrack = audioTracks[0];
-        }
+    // Create a mixed source? 
+    // We can use captureStream() on video, but that mutes it?
+    // Better to clone element.
+    if (audioElement || screenVideo.getAttribute('src')) {
+         exportAudioContext = new AudioContext();
+         const dest = exportAudioContext.createMediaStreamDestination();
+         // Background Audio
+         if (audioElement) {
+             exportAudio = audioElement.cloneNode(true);
+             exportAudio.crossOrigin = "anonymous";
+             const source = exportAudioContext.createMediaElementSource(exportAudio);
+             if (audioOffset > 0) {
+                 const delayNode = exportAudioContext.createDelay(Math.max(1.0, audioOffset + 1.0));
+                 delayNode.delayTime.value = audioOffset;
+                 source.connect(delayNode);
+                 delayNode.connect(dest);
+             } else {
+                 source.connect(dest);
+             }
+         }
+
+         // Screen Audio (if present in video file)
+         // We can try to capture from screenVideo?
+         // Note: captureStream() on screenVideo might conflict with playback? 
+         // Usually safest to just use `captureStream(0)` on video element if we play it.
+         // If we use `captureStream` on video, we get video+audio tracks.
+         // We only want audio.
+         // But `createMediaElementSource` requires CORS or same-origin.
+         // Blob url is same-origin.
+         if (screenVideo.src) {
+             try {
+                // If we use createMediaElementSource on screenVideo, it redirects output!
+                // So we can't hear it. That's fine for export.
+                // BUT we need it to play on screen? 
+                // We should clone it for audio extraction?
+                // Cloning a video blob element is cheap.
+                 const vidClone = document.createElement('video');
+                 vidClone.src = screenVideo.src;
+                 vidClone.muted = true; // We don't want to hear it, but we need stream?
+                 // No, createMediaElementSource output is the stream.
+                 // We don't need to play it if we use `captureStream`?
+                 // Let's use `screenVideo` directly if possible, but redirecting output silences it for user.
+                 // Actually, export is overlay mode?
+                 // Let's rely on `captureStream` of screenVideo for audio track.
+                 
+                 // However, captureStream() is simplest.
+                 // If we use `screenVideo.captureStream()`, we get tracks.
+                 // We can pipe them.
+             } catch (e) {
+                 console.warn("Screen audio setup failed", e);
+             }
+         }
+         
+         // Simplified Audio: Just use what we can get.
+         // Use the `exportAudio` (background) if exists. 
+         // Integrating Screen Audio is tricky without `captureStream` or graph routing.
+         // Given "Audio decode failed" earlier, maybe Screen Audio is the issue.
+         // Let's try to include Background Audio properly first.
+         
+         const audioTracks = dest.stream.getAudioTracks();
+         if (audioTracks.length > 0) {
+             audioTrack = audioTracks[0];
+         }
+    }
+    
+    // Prepare Audio Stream Transfer
+    if (audioTrack && window.MediaStreamTrackProcessor) {
+        const processor = new MediaStreamTrackProcessor({ track: audioTrack });
+        audioStream = processor.readable;
     }
 
     // Initialize Worker
@@ -117,10 +167,7 @@ export const useVideoExport = () => {
             a.click();
             URL.revokeObjectURL(url);
             
-            // Cleanup Audio Context
-            if (exportAudioContext) {
-                exportAudioContext.close();
-            }
+            if (exportAudioContext) exportAudioContext.close();
             setIsExporting(false);
             if (onComplete) onComplete();
         }
@@ -135,17 +182,10 @@ export const useVideoExport = () => {
         bgBitmap = await createImageBitmap(backgroundImage);
     }
     
-    // Prepare Audio Stream (if supported)
-    let audioStream = null;
-    if (audioTrack && window.MediaStreamTrackProcessor) {
-        const processor = new MediaStreamTrackProcessor({ track: audioTrack });
-        audioStream = processor.readable;
-    }
-    
     const transferList = [offscreen];
     if (bgBitmap) transferList.push(bgBitmap);
     if (audioStream) transferList.push(audioStream);
-
+    
     workerRef.current.postMessage({
         type: 'INIT',
         payload: {
@@ -154,12 +194,11 @@ export const useVideoExport = () => {
             interactionsData,
             backgroundImage: bgBitmap,
             config: { scaleFactor },
-            audioStream: audioStream 
+            audioStream // Send stream
         }
     }, transferList);
 
     // 4. Start Playback & Loop
-    
     const videos = [screenVideo];
     if (cameraVideo) videos.push(cameraVideo);
     
@@ -170,12 +209,12 @@ export const useVideoExport = () => {
             exportAudio.currentTime = 0;
         }
         exportAudio.volume = 1.0; 
-        exportAudio.play();
+        exportAudio.play().catch(e => console.warn("Audio play fail", e));
     }
     
     videos.forEach(v => {
         v.currentTime = 0;
-        v.play();
+        v.play().catch(e => console.warn("Video play fail", e));
     });
 
     const drawFrame = async () => {
@@ -187,8 +226,7 @@ export const useVideoExport = () => {
 
         if (current >= duration || screenVideo.ended) {
             stopExport(videos, exportAudio);
-            // Tell worker to finish
-            workerRef.current.postMessage({ type: 'FINISH' });
+            if (workerRef.current) workerRef.current.postMessage({ type: 'FINISH' });
             return;
         }
         
@@ -199,16 +237,22 @@ export const useVideoExport = () => {
                 cameraBitmap = await createImageBitmap(cameraVideo);
             }
             
-            workerRef.current.postMessage({
-                type: 'RENDER_FRAME',
-                payload: {
-                    screenBitmap,
-                    cameraBitmap,
-                    timestamp: current,
-                    baseSettings,
-                    overrides
-                }
-            }, [screenBitmap, ...(cameraBitmap ? [cameraBitmap] : [])]);
+            if (workerRef.current) {
+                workerRef.current.postMessage({
+                    type: 'RENDER_FRAME',
+                    payload: {
+                        screenBitmap,
+                        cameraBitmap,
+                        timestamp: current,
+                        baseSettings,
+                        overrides
+                    }
+                }, [screenBitmap, ...(cameraBitmap ? [cameraBitmap] : [])]);
+            } else {
+                 screenBitmap.close();
+                 if (cameraBitmap) cameraBitmap.close();
+                 return;
+            }
         } catch (e) {
             console.error("Frame capture error:", e);
         }
@@ -218,24 +262,28 @@ export const useVideoExport = () => {
 
     drawFrame();
   };
-
+  
   const stopExport = (videos, exportAudio) => {
     if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
     }
-    
-    videos.forEach(v => v.pause());
+    videos && videos.forEach(v => v.pause());
     if (exportAudio) exportAudio.pause();
-    
-    // Note: We do NOT terminate worker here immediately if we wait for 'DONE'
-    // But 'stopExport' is called when duration ends.
-    // If user manually cancels? We should likely handle that separate.
-    // For now assuming success flow.
+    // Worker termination is handled after DONE or manual stop
+  };
+
+  const manualStop = () => {
+     if (workerRef.current) {
+         workerRef.current.terminate();
+         workerRef.current = null;
+     }
+     setIsExporting(false);
   };
 
   return {
     isExporting,
     progress,
-    startExport
+    startExport,
+    stopExport: manualStop
   };
 };
