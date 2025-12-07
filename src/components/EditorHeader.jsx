@@ -1,7 +1,7 @@
 import React from 'react';
-import { Download } from 'lucide-react';
+import { Download, Settings } from 'lucide-react';
 
-const EditorHeader = ({ isExporting, exportProgress, loading, error, onExport, viewMode, onViewModeChange }) => {
+const EditorHeader = ({ isExporting, exportProgress, loading, error, onExport, viewMode, onViewModeChange, onOpenSettings }) => {
   return (
     <header className="h-14 border-b border-neutral-800 flex items-center px-4 justify-between bg-neutral-950 z-10 relative">
       <div className="flex items-center gap-2">
@@ -36,6 +36,14 @@ const EditorHeader = ({ isExporting, exportProgress, loading, error, onExport, v
       <div className="flex items-center gap-4">
           {loading && <span className="text-xs text-yellow-500 animate-pulse">Loading assets...</span>}
           {error && <span className="text-xs text-red-500">{error}</span>}
+
+          <button
+              onClick={onOpenSettings}
+              className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-md transition-colors cursor-pointer"
+              title="Settings"
+          >
+              <Settings size={18} />
+          </button>
           
           <button 
               onClick={onExport}

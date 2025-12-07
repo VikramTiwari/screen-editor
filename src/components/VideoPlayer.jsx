@@ -7,7 +7,11 @@ const VideoPlayer = forwardRef(({ src, className, label, isMuted = false, onLoad
   useImperativeHandle(ref, () => ({
     play: () => videoRef.current?.play(),
     pause: () => videoRef.current?.pause(),
-    seek: (time) => { if (videoRef.current) videoRef.current.currentTime = time; },
+    seek: (time) => {
+        if (videoRef.current && Number.isFinite(time)) {
+            videoRef.current.currentTime = time;
+        }
+    },
     getCurrentTime: () => videoRef.current?.currentTime || 0,
     getDuration: () => videoRef.current?.duration || 0,
     getVideoElement: () => videoRef.current,

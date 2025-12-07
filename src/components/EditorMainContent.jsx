@@ -2,6 +2,8 @@ import React from 'react';
 import YouTubeMock from './YouTubeMock';
 import Canvas from './Canvas';
 import PropertiesPanel from './PropertiesPanel';
+import TranscriptPanel from './TranscriptPanel';
+import { Sliders, FileText } from 'lucide-react';
 
 const EditorMainContent = ({
     viewMode,
@@ -31,7 +33,16 @@ const EditorMainContent = ({
     handleTimeUpdate,
     handleLoadedMetadata,
     isSettingFocalPoint,
-    onFocalPointSelect
+    onToggleFocalPointMode,
+    onFocalPointSelect,
+    // Transcript Props
+    activePanel,
+    setActivePanel,
+    transcript,
+    isTranscribing,
+    onTranscribe,
+    onSeekTranscript,
+    hasApiKey
 }) => (
     <div className="flex-1 flex overflow-hidden">
         {viewMode === 'youtube' ? (
@@ -67,14 +78,55 @@ const EditorMainContent = ({
                     className="flex-shrink-0 bg-neutral-900 border-r border-neutral-800 flex flex-col"
                     style={{ width: panelWidth }}
                 >
-                    <PropertiesPanel 
-                        settings={propertiesPanelSettings}
-                        onSettingsChange={onSettingsChange}
-                        selectionVisibility={selectionVisibility}
-                        onVisibilityChange={onVisibilityChange}
-                        isBaseSettings={!selectedOverrideId}
-                        disabled={isExporting}
-                    />
+                    {/* Sidebar Tabs */}
+                    <div className="flex border-b border-neutral-800 bg-neutral-950">
+                        <button
+                            onClick={() => setActivePanel('properties')}
+                            className={`flex-1 py-3 text-xs font-medium flex items-center justify-center gap-2 transition-colors border-b-2 ${
+                                activePanel === 'properties'
+                                    ? 'border-blue-500 text-white'
+                                    : 'border-transparent text-neutral-500 hover:text-neutral-300'
+                            }`}
+                        >
+                            <Sliders size={14} />
+                            Properties
+                        </button>
+                        <button
+                            onClick={() => setActivePanel('transcript')}
+                            className={`flex-1 py-3 text-xs font-medium flex items-center justify-center gap-2 transition-colors border-b-2 ${
+                                activePanel === 'transcript'
+                                    ? 'border-blue-500 text-white'
+                                    : 'border-transparent text-neutral-500 hover:text-neutral-300'
+                            }`}
+                        >
+                            <FileText size={14} />
+                            Transcript
+                        </button>
+                    </div>
+
+                    <div className="flex-1 overflow-hidden relative">
+                        {activePanel === 'properties' ? (
+                            <PropertiesPanel 
+                                settings={propertiesPanelSettings}
+                                onSettingsChange={onSettingsChange}
+                                selectionVisibility={selectionVisibility}
+                                onVisibilityChange={onVisibilityChange}
+                                isBaseSettings={!selectedOverrideId}
+                                disabled={isExporting}
+                                isSettingFocalPoint={isSettingFocalPoint}
+                                onToggleFocalPointMode={onToggleFocalPointMode}
+                            />
+                        ) : (
+                            <TranscriptPanel 
+                                transcript={transcript}
+                                isLoading={isTranscribing}
+                                onTranscribe={onTranscribe}
+                                onSeek={onSeekTranscript}
+                                currentTime={currentTime}
+                                hasApiKey={hasApiKey}
+                            />
+                        )}
+                    </div>
                 </div>
 
                 {/* Resize Handle for Panel */}
