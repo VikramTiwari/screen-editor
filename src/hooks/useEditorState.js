@@ -288,11 +288,45 @@ export const useEditorState = () => {
       };
 
       setOverrides(prev => {
-          // TODO: Handle overlaps? For now, we just add it. 
-          // Ideally we should trim existing overrides that overlap with this new one.
-          // But simple "layering" might be enough if we sort or prioritize.
-          // Let's just add it.
-          return [...prev, newOverride];
+          const result = [];
+          const { start: newStart, end: newEnd } = newOverride;
+
+          for (const existing of prev) {
+              // No overlap
+              if (existing.end <= newStart || existing.start >= newEnd) {
+                  result.push(existing);
+                  continue;
+              }
+
+              // Overlap found - trim/split existing
+
+              // 1. Pre-segment (if existing starts before new one)
+              if (existing.start < newStart) {
+                  result.push({
+                      ...existing,
+                      end: newStart,
+                      // Keep original ID for the first segment to minimize re-renders if possible, or new ID?
+                      // Let's keep ID for stability if it's the "main" part, but effectively it's modified.
+                  });
+              }
+
+              // 2. Post-segment (if existing ends after new one)
+              if (existing.end > newEnd) {
+                  result.push({
+                      ...existing,
+                      id: crypto.randomUUID(), // New ID for the split part
+                      start: newEnd
+                  });
+              }
+
+              // If existing is fully inside [newStart, newEnd], it is dropped.
+          }
+
+          // Add the new override
+          result.push(newOverride);
+
+          // Sort by start time
+          return result.sort((a, b) => a.start - b.start);
       });
 
       setSelectionRange({ start, end });
