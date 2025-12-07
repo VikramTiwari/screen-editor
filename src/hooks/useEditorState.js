@@ -16,6 +16,7 @@ const defaultSettings = {
   cameraShape: 'rectangle',
   cameraBorderRadius: 12,
   cameraShadow: 20,
+  audioOffset: 0, // In seconds, positive means audio plays later (delayed), negative means audio plays earlier
 };
 
 export const useEditorState = () => {
@@ -116,7 +117,7 @@ export const useEditorState = () => {
   // Actions
 
 
-  const handleSettingsChange = (newSettings) => {
+  const handleSettingsChange = useCallback((newSettings) => {
       if (selectedOverrideId) {
           // Update specific override
           setOverrides(prev => prev.map(o => {
@@ -129,7 +130,7 @@ export const useEditorState = () => {
           // Update base settings
           setBaseSettings(prev => ({ ...prev, ...newSettings }));
       }
-  };
+  }, [selectedOverrideId]);
 
   const handleVisibilityChange = (type, value) => {
       const settingKey = type === 'screen' ? 'showScreen' : 'showCamera';
@@ -141,10 +142,26 @@ export const useEditorState = () => {
     const nextState = !isPlaying;
     setIsPlaying(nextState);
 
+    const offset = baseSettings.audioOffset || 0;
+
     [screenRef, audioRef, cameraRef].forEach(ref => {
       if (ref.current) {
         if (ref.current.play) {
             if (nextState) {
+                // Determine start time for this element
+                // For video: currentTime
+                // For audio: currentTime - offset
+                
+                if (ref === audioRef) {
+                     ref.current.currentTime = Math.max(0, currentTime - offset);
+                } else {
+                     // For video refs, they might use internal seek or just play
+                     // If using HTML5 video, we might want to ensure sync
+                     if (ref.current.currentTime !== undefined) {
+                         // Double check sync
+                     }
+                }
+                
                 const playPromise = ref.current.play();
                 if (playPromise !== undefined) {
                     playPromise.catch(error => {
@@ -168,7 +185,21 @@ export const useEditorState = () => {
   const handleTimeUpdate = (isExporting) => {
     if (isExporting) return;
     if (screenRef.current) {
-        setCurrentTime(screenRef.current.getCurrentTime());
+        const time = screenRef.current.getCurrentTime();
+        setCurrentTime(time);
+        
+        // Continuous Sync Check for Audio
+        // If we drift too much, snap back.
+        // Doing this every frame might be jittery, but let's check.
+        // We trust screenRef as the master clock.
+        
+        if (isPlaying && audioRef.current) {
+             const offset = baseSettings.audioOffset || 0;
+             const expectedAudioTime = Math.max(0, time - offset);
+             if (Math.abs(audioRef.current.currentTime - expectedAudioTime) > 0.3) {
+                 audioRef.current.currentTime = expectedAudioTime;
+             }
+        }
     }
   };
 
@@ -186,38 +217,41 @@ export const useEditorState = () => {
 
   const handleHover = (time) => {
       setHoverTime(time);
-      if (time !== null) {
-          [screenRef, audioRef, cameraRef].forEach(ref => {
-              if (ref.current) {
-                  if (typeof ref.current.seek === 'function') {
-                      ref.current.seek(time);
-                  } else {
-                      ref.current.currentTime = time;
-                  }
+      const targetTime = time !== null ? time : currentTime;
+      const offset = baseSettings.audioOffset || 0;
+      
+      [screenRef, audioRef, cameraRef].forEach(ref => {
+          if (ref.current) {
+              let t = targetTime;
+              if (ref === audioRef) {
+                  t = Math.max(0, targetTime - offset);
               }
-          });
-      } else {
-          [screenRef, audioRef, cameraRef].forEach(ref => {
-              if (ref.current) {
-                  if (typeof ref.current.seek === 'function') {
-                      ref.current.seek(currentTime);
-                  } else {
-                      ref.current.currentTime = currentTime;
-                  }
+              
+              if (typeof ref.current.seek === 'function') {
+                  ref.current.seek(t);
+              } else {
+                  ref.current.currentTime = t;
               }
-          });
-      }
+          }
+      });
   };
 
   const handleSeek = (time, isExporting) => {
       if (isExporting) return;
       setCurrentTime(time);
+      const offset = baseSettings.audioOffset || 0;
+      
       [screenRef, audioRef, cameraRef].forEach(ref => {
           if (ref.current) {
+              let t = time;
+              if (ref === audioRef) {
+                  t = Math.max(0, time - offset);
+              }
+
               if (typeof ref.current.seek === 'function') {
-                  ref.current.seek(time);
+                  ref.current.seek(t);
               } else {
-                  ref.current.currentTime = time;
+                  ref.current.currentTime = t;
               }
           }
       });
@@ -305,6 +339,21 @@ export const useEditorState = () => {
       });
   }, []);
 
+  // Focal Point Mode
+  const [isSettingFocalPoint, setIsSettingFocalPoint] = useState(false);
+
+  const toggleFocalPointMode = useCallback(() => {
+      setIsSettingFocalPoint(prev => !prev);
+  }, []);
+
+  const handleFocalPointChange = useCallback((x, y) => {
+      handleSettingsChange({ 
+          focalPointX: Math.round(x), 
+          focalPointY: Math.round(y) 
+      });
+      setIsSettingFocalPoint(false);
+  }, [handleSettingsChange]);
+
   return {
       isPlaying,
       currentTime,
@@ -339,6 +388,9 @@ export const useEditorState = () => {
       handleSeek,
       applyAutoZoomOverrides,
       setOverrides,
-      setBaseSettings
+      setBaseSettings,
+      isSettingFocalPoint,
+      toggleFocalPointMode,
+      handleFocalPointChange
   };
 };

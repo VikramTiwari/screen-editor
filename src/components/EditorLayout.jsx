@@ -6,6 +6,8 @@ import EditorMainContent from './EditorMainContent';
 import { useRecordingLoader } from '../hooks/useRecordingLoader';
 import { useEditorState } from '../hooks/useEditorState';
 import { useVideoExport } from '../hooks/useVideoExport';
+import SettingsModal from './SettingsModal';
+import { transcribeAudio } from '../services/transcriptionService';
 import { useAutoSave } from '../hooks/useAutoSave';
 
 const DEFAULT_SETTINGS = {
@@ -60,7 +62,10 @@ const EditorLayout = () => {
       handleSeek,
       applyAutoZoomOverrides,
       setOverrides,
-      setBaseSettings
+      setBaseSettings,
+      isSettingFocalPoint,
+      toggleFocalPointMode,
+      handleFocalPointChange
   } = useEditorState({
       defaultSettings: DEFAULT_SETTINGS
   });
@@ -69,19 +74,32 @@ const EditorLayout = () => {
   useEffect(() => {
       const loadConfig = async () => {
           try {
-              const res = await fetch('/demo/config.json');
-              if (res.ok) {
-                  const config = await res.json();
-                  if (config.baseSettings) {
-                      setBaseSettings(prev => ({ ...prev, ...config.baseSettings }));
+              // Load Config
+              const response = await fetch('/demo/config.json');
+              if (response.ok) {
+                  const savedConfig = await response.json();
+                  if (savedConfig.baseSettings) {
+                      setBaseSettings(prev => ({ ...prev, ...savedConfig.baseSettings }));
                   }
-                  if (config.overrides) {
-                      setOverrides(config.overrides);
+                  if (savedConfig.overrides) {
+                      setOverrides(savedConfig.overrides);
+                  }
+                  if (savedConfig.interactions) {
+                      // We don't want to overwrite interactions from recording loader if they are empty in config
+                      // but here we are just loading checks. The actual state update depends on implementation.
+                      // For now, let's assume this was handled elsewhere or we add it here if needed.
                   }
                   // console.log("Loaded config from /demo/config.json");
               }
-          } catch (e) {
-              // console.log("No existing config found or failed to load", e);
+
+              // Load Transcript
+              const transcriptResponse = await fetch('/demo/transcript.json');
+              if (transcriptResponse.ok) {
+                  const savedTranscript = await transcriptResponse.json();
+                  setTranscript(savedTranscript);
+              }
+          } catch {
+              // console.log("No existing config found or failed to load");
           }
       };
       loadConfig();
@@ -120,13 +138,63 @@ const EditorLayout = () => {
   }, [interactions, duration, applyAutoZoomOverrides, screenRef]);
 
   // Auto-generate zoom overrides when interactions are loaded
-  useEffect(() => {
-      if (interactions && duration > 0) {
-          // Check if we already have auto-zoom overrides to avoid re-generating?
-          // For now, just run it once.
-          handleAutoZoom();
-      }
-  }, [interactions, duration, handleAutoZoom]);
+  // useEffect(() => {
+  //     if (interactions && duration > 0) {
+  //         // Check if we already have auto-zoom overrides to avoid re-generating?
+  //         // For now, just run it once.
+  //         handleAutoZoom();
+  //     }
+  // }, [interactions, duration, handleAutoZoom]);
+
+  // --- Transcription & Settings State ---
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
+  const [modelName, setModelName] = useState(() => localStorage.getItem('gemini_model_name') || 'gemini-3-pro-preview');
+  const [transcript, setTranscript] = useState(null);
+  
+  // Auto-save transcript
+  useAutoSave(transcript, '/api/save-transcript');
+
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [activeRightPanel, setActiveRightPanel] = useState('properties');
+
+  // useEffect(() => {
+  //   if (localStorage.getItem('gemini_model_name') === 'gemini-3.0-pro') {
+  //     // localStorage.setItem('gemini_model_name', 'gemini-2.0-flash-exp');
+  //     // setModelName('gemini-2.0-flash-exp');
+  //   }
+  // }, []);
+
+  const handleSaveSettings = (key, model) => {
+    setApiKey(key);
+    setModelName(model);
+    localStorage.setItem('gemini_api_key', key);
+    localStorage.setItem('gemini_model_name', model);
+  };
+
+  const handleTranscribe = async () => {
+    if (!audio || !apiKey) return;
+    
+    setIsTranscribing(true);
+    try {
+      // Fetch audio blob
+      const res = await fetch(audio);
+      const audioBlob = await res.blob();
+      
+      const newTranscript = await transcribeAudio(audioBlob, apiKey, modelName);
+      setTranscript(newTranscript);
+    } catch (error) {
+      console.error("Transcription failed", error);
+      alert(`Transcription failed: ${error.message}`);
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const handleSeekTranscript = (time) => {
+    handleSeek(time, isExporting); 
+  };
+  // --------------------------------------
 
   const [panelWidth, setPanelWidth] = useState(320);
   const [timelineHeight, setTimelineHeight] = useState(450);
@@ -261,6 +329,7 @@ const EditorLayout = () => {
               onSave={handleSaveConfig}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
+              onOpenSettings={() => setIsSettingsOpen(true)}
           />
 
           {/* Main Content Area */}
@@ -287,8 +356,21 @@ const EditorLayout = () => {
               duration={duration}
               currentSettings={currentSettings}
               getCurrentLayoutMode={getCurrentLayoutMode}
+              // Canvas Props
               handleTimeUpdate={() => handleTimeUpdate(isExporting)}
               handleLoadedMetadata={handleLoadedMetadata}
+              isSettingFocalPoint={isSettingFocalPoint}
+              onFocalPointSelect={handleFocalPointChange}
+              onToggleFocalPointMode={toggleFocalPointMode}
+              
+              // Transcript
+              activePanel={activeRightPanel}
+              setActivePanel={setActiveRightPanel}
+              transcript={transcript}
+              isTranscribing={isTranscribing}
+              onTranscribe={handleTranscribe}
+              onSeekTranscript={handleSeekTranscript}
+              hasApiKey={!!apiKey}
           />
 
           {/* Audio Element (Always Rendered) */}
@@ -327,6 +409,7 @@ const EditorLayout = () => {
                         onCancelOverride={cancelOverride}
                         selectedOverrideId={selectedOverrideId}
                         onDeleteOverride={deleteOverride}
+                        onAutoZoom={handleAutoZoom}
                     />
 
                     <div className="flex-1 min-h-0 relative">
@@ -348,6 +431,16 @@ const EditorLayout = () => {
                     </div>
                 </div>
               </>
+          )}
+          
+          {isSettingsOpen && (
+            <SettingsModal 
+              isOpen={isSettingsOpen}
+              onClose={() => setIsSettingsOpen(false)}
+              apiKey={apiKey}
+              modelName={modelName}
+              onSave={handleSaveSettings}
+            />
           )}
        </div>
   );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shuffle, Circle, Square, Monitor, Video, MousePointer2 } from 'lucide-react';
+import { Shuffle, Circle, Square, Monitor, Video, MousePointer2, Search } from 'lucide-react';
 import BackgroundPicker from './BackgroundPicker';
 import { getRandomBackground, SOLIDS } from '../utils/backgrounds';
 
@@ -26,7 +26,16 @@ const PresetControl = ({ label, value, options, onChange }) => (
     </div>
 );
 
-const PropertiesPanel = ({ settings, onSettingsChange, selectionVisibility, onVisibilityChange, isBaseSettings, disabled }) => {
+const PropertiesPanel = ({ 
+    settings, 
+    onSettingsChange, 
+    selectionVisibility, 
+    onVisibilityChange, 
+    isBaseSettings, 
+    disabled,
+    isSettingFocalPoint,
+    onToggleFocalPointMode 
+}) => {
   const [showBackgroundDetails, setShowBackgroundDetails] = React.useState(false);
 
   const handleChange = (key, value) => {
@@ -165,7 +174,7 @@ const PropertiesPanel = ({ settings, onSettingsChange, selectionVisibility, onVi
             </div>
         )}
         
-        <PresetControl 
+      <PresetControl 
             label="Padding" 
             value={settings.padding}
             onChange={(val) => handleChange('padding', val)}
@@ -177,7 +186,76 @@ const PropertiesPanel = ({ settings, onSettingsChange, selectionVisibility, onVi
                 { label: 'L', value: 96 },
             ]}
         />
+        
+        {isBaseSettings && (
+             <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                    <label className="text-sm text-neutral-400">Audio Offset</label>
+                    <span className="text-xs text-neutral-500 font-mono">{(settings.audioOffset || 0).toFixed(1)}s</span>
+                </div>
+                <input 
+                    type="range" 
+                    min="-5" 
+                    max="5" 
+                    step="0.1"
+                    value={settings.audioOffset || 0}
+                    onChange={(e) => handleChange('audioOffset', parseFloat(e.target.value))}
+                    className="w-full"
+                />
+                <p className="text-[10px] text-neutral-600">
+                    Positive delays audio, negative advances it.
+                </p>
+             </div>
+        )}
       </div>
+      
+      {/* Zoom Controls */}
+      {(!selectionVisibility || selectionVisibility.screen) && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Zoom & Focus</h3>
+            </div>
+            
+            <div className="space-y-4">
+                 <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                        <label className="text-sm text-neutral-400">Scale</label>
+                        <span className="text-xs text-neutral-500 font-mono">{(settings.zoomScale || 1).toFixed(2)}x</span>
+                    </div>
+                    <input 
+                        type="range" 
+                        min="1" 
+                        max="3" 
+                        step="0.05"
+                        value={settings.zoomScale || 1}
+                        onChange={(e) => handleChange('zoomScale', parseFloat(e.target.value))}
+                        className="w-full"
+                    />
+                 </div>
+
+                 <div className="space-y-2">
+                    <label className="text-sm text-neutral-400">Focal Point</label>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={onToggleFocalPointMode}
+                            className={`flex-1 py-1.5 px-3 rounded text-xs font-medium border transition-colors flex items-center justify-center gap-2 ${
+                                isSettingFocalPoint 
+                                    ? 'bg-blue-900 border-blue-500 text-blue-100 animate-pulse'
+                                    : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:bg-neutral-700'
+                            }`}
+                        >
+                            <Search size={14} />
+                            {isSettingFocalPoint ? 'Click on Content...' : 'Set Point'}
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs text-neutral-500 font-mono mt-1">
+                        <div>X: {(settings.focalPointX || 50)}%</div>
+                        <div>Y: {(settings.focalPointY || 50)}%</div>
+                    </div>
+                 </div>
+            </div>
+          </div>
+      )}
 
       {(!selectionVisibility || selectionVisibility.screen) && (
         <div>

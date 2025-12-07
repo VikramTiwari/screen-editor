@@ -230,7 +230,7 @@ const TimelineGrid = ({
                     >
                         <div className="absolute -top-1 -left-1.5 w-3.5 h-3.5 bg-yellow-400/50 rounded-full shadow-sm" />
                         <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-neutral-800 text-white text-[10px] px-1 rounded">
-                            {hoverTime.toFixed(1)}s
+                            {(hoverTime || 0).toFixed(1)}s
                         </div>
                     </div>
                 )}
@@ -242,7 +242,7 @@ const TimelineGrid = ({
                 >
                     <div className="absolute -top-1 -left-1.5 w-3.5 h-3.5 bg-white rounded-full shadow-sm border border-neutral-900" />
                     <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-white text-neutral-900 text-[10px] font-bold px-1 rounded">
-                        {currentTime.toFixed(1)}s
+                        {(currentTime || 0).toFixed(1)}s
                     </div>
                 </div>
 

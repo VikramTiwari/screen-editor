@@ -42,6 +42,38 @@ const saveConfigPlugin = () => ({
         next();
       }
     });
+    
+    server.middlewares.use('/api/save-transcript', async (req, res, next) => {
+      if (req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => {
+          body += chunk.toString();
+        });
+        req.on('end', () => {
+          try {
+            const transcript = JSON.parse(body);
+            const filePath = path.resolve(__dirname, 'public/demo/transcript.json');
+            
+            // Ensure directory exists
+            const dir = path.dirname(filePath);
+            if (!fs.existsSync(dir)) {
+              fs.mkdirSync(dir, { recursive: true });
+            }
+
+            fs.writeFileSync(filePath, JSON.stringify(transcript, null, 2));
+            res.statusCode = 200;
+            res.end(JSON.stringify({ success: true }));
+            console.log('Transcript saved to', filePath);
+          } catch (err) {
+            console.error('Error saving transcript:', err);
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: 'Failed to save transcript' }));
+          }
+        });
+      } else {
+        next();
+      }
+    });
   },
 });
 

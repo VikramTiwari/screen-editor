@@ -64,16 +64,32 @@ export const useVideoExport = () => {
     // Combine audio if available
     let finalStream = canvasStream;
     let exportAudio = null;
+    let exportAudioContext = null;
     
+    // Audio Offset Logic
+    // If offset > 0: Audio is delayed (plays later than video start) -> proper sync needs delay
+    // If offset < 0: Audio is early (starts before video) -> we seek into audio to skip start
+    const audioOffset = baseSettings.audioOffset || 0;
+
     if (audioElement) {
         // Clone the audio element to avoid "already connected" errors
         exportAudio = audioElement.cloneNode(true);
         exportAudio.crossOrigin = "anonymous";
         
-        const audioContext = new AudioContext();
-        const dest = audioContext.createMediaStreamDestination();
-        const source = audioContext.createMediaElementSource(exportAudio);
-        source.connect(dest);
+        exportAudioContext = new AudioContext();
+        const dest = exportAudioContext.createMediaStreamDestination();
+        const source = exportAudioContext.createMediaElementSource(exportAudio);
+        
+        if (audioOffset > 0) {
+            // Delay the audio signal
+            // Max delay buffer needs to cover the offset
+            const delayNode = exportAudioContext.createDelay(Math.max(1.0, audioOffset + 1.0));
+            delayNode.delayTime.value = audioOffset;
+            source.connect(delayNode);
+            delayNode.connect(dest);
+        } else {
+            source.connect(dest);
+        }
         
         // Mix audio tracks
         const audioTracks = dest.stream.getAudioTracks();
@@ -103,6 +119,12 @@ export const useVideoExport = () => {
         a.download = `screen-studio-export-${Date.now()}.webm`;
         a.click();
         URL.revokeObjectURL(url);
+        
+        // Cleanup Audio Context
+        if (exportAudioContext) {
+            exportAudioContext.close();
+        }
+        
         setIsExporting(false);
         if (onComplete) onComplete();
     };
@@ -113,7 +135,12 @@ export const useVideoExport = () => {
     const videos = [screenVideo];
     if (cameraVideo) videos.push(cameraVideo);
     if (exportAudio) {
-        exportAudio.currentTime = 0;
+        if (audioOffset < 0) {
+            // Audio starts early, so we skip the first part
+            exportAudio.currentTime = Math.abs(audioOffset);
+        } else {
+            exportAudio.currentTime = 0;
+        }
         exportAudio.volume = 1.0; 
     }
 
@@ -134,10 +161,33 @@ export const useVideoExport = () => {
     // Helper to calculate numerical layout values from abstract settings
     const getLayout = (s) => {
         const padding = (s.padding ?? 40) * scaleFactor;
-        const screenX = padding;
-        const screenY = padding;
-        const contentW = width - (padding * 2);
-        const contentH = height - (padding * 2);
+        
+        // 1. Calculate Max Available Area
+        const maxW = width - (padding * 2);
+        const maxH = height - (padding * 2);
+
+        // 2. Calculate Actual Screen Container (Fit Aspect Ratio)
+        // Default to 16:9 if video not ready, but it should be.
+        const vidW = (screenVideo && screenVideo.videoWidth) ? screenVideo.videoWidth : 1920;
+        const vidH = (screenVideo && screenVideo.videoHeight) ? screenVideo.videoHeight : 1080;
+        const vidRatio = vidW / vidH;
+        const maxRatio = maxW / maxH;
+        
+        let sW, sH, sX, sY;
+        
+        if (vidRatio > maxRatio) {
+            // Video is wider than available space -> Fit Width
+            sW = maxW;
+            sH = maxW / vidRatio;
+            sX = padding;
+            sY = padding + (maxH - sH) / 2;
+        } else {
+            // Video is taller -> Fit Height
+            sH = maxH;
+            sW = maxH * vidRatio;
+            sX = padding + (maxW - sW) / 2;
+            sY = padding;
+        }
         
         const camSize = (s.cameraSize ?? 200) * scaleFactor;
         const isCircle = s.cameraShape === 'circle';
@@ -145,28 +195,28 @@ export const useVideoExport = () => {
         const camH = isCircle ? camSize : camSize * (9/16);
         const camRadius = isCircle ? camSize / 2 : (s.cameraBorderRadius ?? 12) * scaleFactor;
         
-        // Camera Position
+        // Camera Position (Relative to actual Screen Container)
         const margin = 20 * scaleFactor;
         let camX, camY;
         const pos = s.cameraPosition || 'bottom-left';
         
         switch(pos) {
             case 'top-left': 
-                camX = screenX + margin; 
-                camY = screenY + margin; 
+                camX = sX + margin; 
+                camY = sY + margin; 
                 break;
             case 'top-right': 
-                camX = screenX + contentW - camW - margin; 
-                camY = screenY + margin; 
+                camX = sX + sW - camW - margin; 
+                camY = sY + margin; 
                 break;
             case 'bottom-right': 
-                camX = screenX + contentW - camW - margin; 
-                camY = screenY + contentH - camH - margin; 
+                camX = sX + sW - camW - margin; 
+                camY = sY + sH - camH - margin; 
                 break;
             case 'bottom-left': 
             default:
-                camX = screenX + margin; 
-                camY = screenY + contentH - camH - margin; 
+                camX = sX + margin; 
+                camY = sY + sH - camH - margin; 
                 break;
         }
 
@@ -174,14 +224,13 @@ export const useVideoExport = () => {
             zoom: s.zoomScale || 1,
             fx: s.focalPointX ?? 50,
             fy: s.focalPointY ?? 50,
-            sPadding: padding,
+            // Layout Props
+            sX, sY, sW, sH,
+            // Style Props
             sRadius: (s.borderRadius ?? 12) * scaleFactor,
             sShadow: (s.shadow ?? 20) * scaleFactor,
-            camW,
-            camH,
-            camX,
-            camY,
-            camRadius,
+            // Camera Props
+            camW, camH, camX, camY, camRadius,
             camShadow: (s.cameraShadow ?? 20) * scaleFactor,
             camOpacity: (s.showCamera ?? true) ? 1 : 0
         };
@@ -222,10 +271,17 @@ export const useVideoExport = () => {
         animState.fx = lerp(animState.fx, target.fx, ZOOM_LERP);
         animState.fy = lerp(animState.fy, target.fy, ZOOM_LERP);
         
-        animState.sPadding = lerp(animState.sPadding, target.sPadding, ZOOM_LERP);
+        // Interpolate Layout
+        animState.sX = lerp(animState.sX, target.sX, ZOOM_LERP);
+        animState.sY = lerp(animState.sY, target.sY, ZOOM_LERP);
+        animState.sW = lerp(animState.sW, target.sW, ZOOM_LERP);
+        animState.sH = lerp(animState.sH, target.sH, ZOOM_LERP);
+        
+        // Interpolate Style
         animState.sRadius = lerp(animState.sRadius, target.sRadius, ZOOM_LERP);
         animState.sShadow = lerp(animState.sShadow, target.sShadow, ZOOM_LERP);
         
+        // Interpolate Camera
         animState.camW = lerp(animState.camW, target.camW, CAM_LERP);
         animState.camH = lerp(animState.camH, target.camH, CAM_LERP);
         animState.camX = lerp(animState.camX, target.camX, CAM_LERP);
@@ -314,11 +370,11 @@ export const useVideoExport = () => {
             ctx.fillRect(0, 0, width, height);
         }
 
-        // Use animState for layout variables
-        const contentWidth = width - (animState.sPadding * 2);
-        const contentHeight = height - (animState.sPadding * 2);
-        const screenX = animState.sPadding;
-        const screenY = animState.sPadding;
+        // Use animState for layout variables - Now derived from Fitted Screen Container
+        const screenX = animState.sX;
+        const screenY = animState.sY;
+        const contentWidth = animState.sW;
+        const contentHeight = animState.sH;
 
         // Draw Screen Container Shadow
         ctx.save();
@@ -342,24 +398,13 @@ export const useVideoExport = () => {
         ctx.clip();
 
         // Draw Screen Video (Contain)
-        const vidRatio = screenVideo.videoWidth / screenVideo.videoHeight;
-        const targetRatio = contentWidth / contentHeight;
+        // Since we calculated sW/sH to fit the video ratio, we just draw fully into sX,sY,sW,sH
         
-        let drawW, drawH, drawX, drawY;
+        const drawW = contentWidth;
+        const drawH = contentHeight;
+        const drawX = screenX;
+        const drawY = screenY;
         
-        if (vidRatio > targetRatio) {
-            drawW = contentWidth;
-            drawH = contentWidth / vidRatio;
-            drawX = screenX;
-            drawY = screenY + (contentHeight - drawH) / 2;
-        } else {
-            drawH = contentHeight;
-            drawW = contentHeight * vidRatio;
-            drawX = screenX + (contentWidth - drawW) / 2;
-            drawY = screenY;
-        }
-
-        // Apply Zoom & Pan
         // Apply Zoom & Pan
         // Use interpolated values
         const zoom = animState.zoom;

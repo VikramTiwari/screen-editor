@@ -18,7 +18,8 @@ const TimelineToolbar = ({
     onCompleteOverride, // Renamed from completeOverride
     onCancelOverride, // Renamed from cancelOverride
     selectedOverrideId,
-    onDeleteOverride // Renamed from deleteOverride
+    onDeleteOverride, // Renamed from deleteOverride
+    onAutoZoom
 }) => {
     return (
         <div className={`h-10 border-b border-neutral-800 flex items-center px-4 gap-2 bg-neutral-900 flex-shrink-0 ${isExporting ? 'pointer-events-none opacity-50' : ''}`}>
@@ -77,6 +78,30 @@ const TimelineToolbar = ({
                     </button>
                 </>
             )}
+            
+            <div className="h-4 w-px bg-neutral-800 mx-2" />
+            
+            <button
+                onClick={onAutoZoom}
+                className="p-1.5 hover:bg-neutral-800 text-purple-400 hover:text-purple-300 rounded-md transition-colors text-xs font-medium flex items-center gap-1"
+                title="Auto-Generate Zoom Overrides"
+            >
+                <div className="w-3 h-3 flex items-center justify-center">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M15 4V2" />
+                        <path d="M15 16v-2" />
+                        <path d="M8 9h2" />
+                        <path d="M20 9h2" />
+                        <path d="M17.8 11.8 19 13" />
+                        <path d="M15 9h0" />
+                        <path d="M2 21l21-21" opacity="0" />
+                        <path d="m21 21-4.3-4.3" />
+                        <path d="M11 11a5 5 0 1 0 0-10 5 5 0 0 0 0 10" />
+                    </svg>
+                </div>
+                Magic Zoom
+            </button>
+
             <div className="flex-1" />
             <span className="text-xs font-mono text-neutral-500 w-10">{formatTime(duration)}</span>
         </div>
