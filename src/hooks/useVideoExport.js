@@ -70,85 +70,49 @@ export const useVideoExport = () => {
         }
     }
 
-    // --- REALTIME AUDIO STREAM SETUP ---
-    let audioStream = null;
-    let exportAudio = null;
-    let exportAudioContext = null;
-    let audioTrack = null;
+    // --- OFFLINE AUDIO SETUP ---
+    // Fetch and decode the audio file directly to pass raw buffers to the worker.
+    // This avoids realtime sync issues and browser inconsistencies.
     
-    // Audio Offset Logic
-    const audioOffset = baseSettings.audioOffset || 0;
-
-    // Create a mixed source? 
-    // We can use captureStream() on video, but that mutes it?
-    // Better to clone element.
-    if (audioElement || screenVideo.getAttribute('src')) {
-         exportAudioContext = new AudioContext();
-         const dest = exportAudioContext.createMediaStreamDestination();
-         // Background Audio
-         if (audioElement) {
-             exportAudio = audioElement.cloneNode(true);
-             exportAudio.crossOrigin = "anonymous";
-             const source = exportAudioContext.createMediaElementSource(exportAudio);
-             if (audioOffset > 0) {
-                 const delayNode = exportAudioContext.createDelay(Math.max(1.0, audioOffset + 1.0));
-                 delayNode.delayTime.value = audioOffset;
-                 source.connect(delayNode);
-                 delayNode.connect(dest);
-             } else {
-                 source.connect(dest);
-             }
-         }
-
-         // Screen Audio (if present in video file)
-         // We can try to capture from screenVideo?
-         // Note: captureStream() on screenVideo might conflict with playback? 
-         // Usually safest to just use `captureStream(0)` on video element if we play it.
-         // If we use `captureStream` on video, we get video+audio tracks.
-         // We only want audio.
-         // But `createMediaElementSource` requires CORS or same-origin.
-         // Blob url is same-origin.
-         if (screenVideo.src) {
-             try {
-                // If we use createMediaElementSource on screenVideo, it redirects output!
-                // So we can't hear it. That's fine for export.
-                // BUT we need it to play on screen? 
-                // We should clone it for audio extraction?
-                // Cloning a video blob element is cheap.
-                 const vidClone = document.createElement('video');
-                 vidClone.src = screenVideo.src;
-                 vidClone.muted = true; // We don't want to hear it, but we need stream?
-                 // No, createMediaElementSource output is the stream.
-                 // We don't need to play it if we use `captureStream`?
-                 // Let's use `screenVideo` directly if possible, but redirecting output silences it for user.
-                 // Actually, export is overlay mode?
-                 // Let's rely on `captureStream` of screenVideo for audio track.
-                 
-                 // However, captureStream() is simplest.
-                 // If we use `screenVideo.captureStream()`, we get tracks.
-                 // We can pipe them.
-             } catch (e) {
-                 console.warn("Screen audio setup failed", e);
-             }
-         }
-         
-         // Simplified Audio: Just use what we can get.
-         // Use the `exportAudio` (background) if exists. 
-         // Integrating Screen Audio is tricky without `captureStream` or graph routing.
-         // Given "Audio decode failed" earlier, maybe Screen Audio is the issue.
-         // Let's try to include Background Audio properly first.
-         
-         const audioTracks = dest.stream.getAudioTracks();
-         if (audioTracks.length > 0) {
-             audioTrack = audioTracks[0];
-         }
+    let audioBuffers = [];
+    const mainAudioSrc = audioElement?.src || audioElement?.currentSrc;
+    // Check if we have background audio
+    if (mainAudioSrc) {
+       try {
+           console.log("Export: Fetching audio...", mainAudioSrc);
+           const response = await fetch(mainAudioSrc);
+           const arrayBuffer = await response.arrayBuffer();
+           
+           // Decode
+           const tempCtx = new AudioContext(); // OfflineAudioContext is faster? AudioContext is fine.
+           const audioBuffer = await tempCtx.decodeAudioData(arrayBuffer);
+           
+           // Extract Mono Channel (simplification)
+           const data = audioBuffer.getChannelData(0); 
+           
+           audioBuffers.push({
+               data: data, // Float32Array
+               sampleRate: audioBuffer.sampleRate,
+               offset: baseSettings.audioOffset || 0
+           });
+           
+           console.log("Export: Audio decoded.", {
+               duration: audioBuffer.duration,
+               sampleRate: audioBuffer.sampleRate,
+               length: data.length
+           });
+           
+           tempCtx.close();
+       } catch (e) {
+           console.error("Export: Failed to load audio file", e);
+           // Fallback or notify?
+       }
     }
     
-    // Prepare Audio Stream Transfer
-    if (audioTrack && window.MediaStreamTrackProcessor) {
-        const processor = new MediaStreamTrackProcessor({ track: audioTrack });
-        audioStream = processor.readable;
-    }
+    // Future: Handle Screen Audio via similar fetch on blob if needed.
+    // For now, prioritize the background audio which was the reported issue.
+
+    // Initialize Worker
 
     // Initialize Worker
     workerRef.current = new Worker(new URL('../workers/render.worker.js', import.meta.url), {
@@ -167,7 +131,7 @@ export const useVideoExport = () => {
             a.click();
             URL.revokeObjectURL(url);
             
-            if (exportAudioContext) exportAudioContext.close();
+            // if (exportAudioContext) exportAudioContext.close(); // Removed in offline refactor
             setIsExporting(false);
             if (onComplete) onComplete();
         }
@@ -184,7 +148,12 @@ export const useVideoExport = () => {
     
     const transferList = [offscreen];
     if (bgBitmap) transferList.push(bgBitmap);
-    if (audioStream) transferList.push(audioStream);
+    // if (audioStream) transferList.push(audioStream); // Removed in offline refactor
+    
+    console.log("Export: Initializing worker. Audio Buffers:", audioBuffers.length);
+    if (audioBuffers.length > 0) {
+        console.log("Export: First buffer length:", audioBuffers[0].data.length);
+    }
     
     workerRef.current.postMessage({
         type: 'INIT',
@@ -194,7 +163,7 @@ export const useVideoExport = () => {
             interactionsData,
             backgroundImage: bgBitmap,
             config: { scaleFactor },
-            audioStream // Send stream
+            audioBuffers: audioBuffers // Pass decoded buffers
         }
     }, transferList);
 
@@ -202,15 +171,14 @@ export const useVideoExport = () => {
     const videos = [screenVideo];
     if (cameraVideo) videos.push(cameraVideo);
     
-    if (exportAudio) {
-        if (audioOffset < 0) {
-            exportAudio.currentTime = Math.abs(audioOffset);
-        } else {
-            exportAudio.currentTime = 0;
-        }
-        exportAudio.volume = 1.0; 
-        exportAudio.play().catch(e => console.warn("Audio play fail", e));
-    }
+    // Note: We don't need to play 'exportAudio' element anymore since we decoded it offline.
+    // But we might want to mute the actual audio element in the DOM if it was playing?
+    // Actually, `audioElement` passed here is usually a ref to the hidden audio element.
+    // We shouldn't play it during export if we don't want double audio, 
+    // BUT the user cannot hear the export happen usually (it's often silent or just progress bar).
+    // If the logical flow is "play video to record", then we might hear it.
+    // However, since we are doing offline audio encoding, we definitely don't need to play the audio element for the recorder's sake.
+    // We might play it for the user's feedback, but let's stick to video only to improve performance.
     
     videos.forEach(v => {
         v.currentTime = 0;
@@ -225,7 +193,7 @@ export const useVideoExport = () => {
         setProgress((current / duration) * 100);
 
         if (current >= duration || screenVideo.ended) {
-            stopExport(videos, exportAudio);
+            stopExport(videos);
             if (workerRef.current) workerRef.current.postMessage({ type: 'FINISH' });
             return;
         }
@@ -263,12 +231,11 @@ export const useVideoExport = () => {
     drawFrame();
   };
   
-  const stopExport = (videos, exportAudio) => {
+  const stopExport = (videos) => {
     if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
     }
     videos && videos.forEach(v => v.pause());
-    if (exportAudio) exportAudio.pause();
     // Worker termination is handled after DONE or manual stop
   };
 
