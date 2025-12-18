@@ -1,3 +1,4 @@
+/* global process */
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -80,4 +81,8 @@ const saveConfigPlugin = () => ({
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss(), saveConfigPlugin()],
+  server: {
+    port: process.env.PORT ? parseInt(process.env.PORT, 10) : 5173,
+    strictPort: false,
+  },
 })

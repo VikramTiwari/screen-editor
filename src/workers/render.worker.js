@@ -165,7 +165,21 @@ self.onmessage = async (e) => {
       console.log("Worker: Storing audio buffer for interleaved writing.");
       // Assume single buffer for now (simplification)
       currentAudioBuffer = audioBuffers[0]; 
-      audioSampleIndex = 0;
+      
+      const offset = currentAudioBuffer.offset || 0;
+      const sr = currentAudioBuffer.sampleRate || 48000;
+      
+      // If offset is negative, the audio starts BEFORE the video.
+      // We must skip the first part of the audio so that the first sample we write corresponds to t=0.
+      // Index = (-offset) * sr
+      if (offset < 0) {
+          audioSampleIndex = Math.floor(-offset * sr);
+          // Clamp to ensure we don't start past the end
+          audioSampleIndex = Math.min(audioSampleIndex, currentAudioBuffer.data.length);
+          console.log("Worker: Negative offset detected. Skipping initial samples.", { offset, audioSampleIndex });
+      } else {
+          audioSampleIndex = 0;
+      }
 
       const sampleRate = currentAudioBuffer.sampleRate || 48000;
       console.log("Worker: Initializing Audio Source (AudioSampleSource)", { sampleRate });
@@ -201,23 +215,41 @@ self.onmessage = async (e) => {
     if (audioSource && currentAudioBuffer) {
         const sr = currentAudioBuffer.sampleRate;
         const totalSamples = currentAudioBuffer.data.length;
+        const offset = currentAudioBuffer.offset || 0; // Get offset here
         
         // Target sample index based on the *end* of this frame
         // (timestamp is start of frame, so we want to cover up to timestamp + frameDuration)
         const targetTime = timestamp + frameDuration;
-        const targetSampleIndex = Math.floor(targetTime * sr);
+        
+        // Calculate which sample index corresponds to targetTime
+        // time = offset + index / sr  =>  index = (time - offset) * sr
+        const targetSampleIndex = Math.floor((targetTime - offset) * sr);
         
         // Determine range to write
-        const start = audioSampleIndex;
-        const end = Math.min(targetSampleIndex, totalSamples);
+        // We start from wherever we left off (audioSampleIndex).
+        // If audioSampleIndex is 0 and targetSampleIndex is negative (because we are before the offset), we clamp end to 0 (or start).
+        // Effectively:
+        let start = audioSampleIndex;
+        // If we haven't reached the audio start yet, start might be 0, and targetSampleIndex negative.
+        // We shouldn't decrement audioSampleIndex.
+        
+        const end = Math.min(Math.max(0, targetSampleIndex), totalSamples);
         const count = end - start;
         
         if (count > 0) {
             const chunkData = currentAudioBuffer.data.slice(start, end);
             
             // Timestamp for AudioSample: Start timestamp in seconds
-            const chunkTime = start / sr; 
+            // Must account for the buffer's start time (offset)
+            let chunkTime = offset + (start / sr); 
             
+            // Safety: Ensure we never send negative timestamp to muxer
+            if (chunkTime < 0) {
+                // This shouldn't happen if audioSampleIndex is initialized correctly for negative offsets,
+                // but float precision might give -0.000001.
+                chunkTime = 0;
+            }
+
             const audioSample = new AudioSample({
                 sampleRate: sr,
                 numberOfChannels: 1,
@@ -229,7 +261,7 @@ self.onmessage = async (e) => {
             
             
             // Debug Interleaved Audio
-            console.log(`Worker: Audio Write | TS: ${chunkTime.toFixed(3)} | Count: ${count}`);
+            // console.log(`Worker: Audio Write | TS: ${chunkTime.toFixed(3)} | Count: ${count}`);
 
             await audioSource.add(audioSample);
             
