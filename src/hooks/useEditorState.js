@@ -17,6 +17,7 @@ const defaultSettings = {
   cameraBorderRadius: 12,
   cameraShadow: 20,
   audioOffset: 0, // In seconds, positive means audio plays later (delayed), negative means audio plays earlier
+  trimStart: 0, // In seconds, how much to trim from the start of the final video
 };
 
 export const useEditorState = () => {
