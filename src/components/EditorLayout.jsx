@@ -385,7 +385,7 @@ const EditorLayout = () => {
           />
 
           {/* Audio Boost (Preview) */}
-          <AudioBoostController audioRef={audioRef} volume={baseSettings.micVolume} />
+          <AudioBoostController audioRef={audioRef} volume={baseSettings.micVolume} isPlaying={isPlaying} />
 
           {viewMode === 'studio' && (
               <>

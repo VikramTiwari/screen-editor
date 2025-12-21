@@ -194,7 +194,7 @@ const PropertiesPanel = ({
                 <input
                     type="range"
                     min="0"
-                    max="5"
+                    max="50"
                     step="0.1"
                     value={settings.micVolume || 1}
                     onChange={(e) => handleChange('micVolume', parseFloat(e.target.value))}

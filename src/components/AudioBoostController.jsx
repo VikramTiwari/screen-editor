@@ -1,73 +1,96 @@
 import React, { useEffect, useRef } from 'react';
 
-const AudioBoostController = ({ audioRef, volume = 1.0 }) => {
+const AudioBoostController = ({ audioRef, volume = 1.0, isPlaying = false }) => {
     const audioContextRef = useRef(null);
     const sourceNodeRef = useRef(null);
     const gainNodeRef = useRef(null);
     const initializedRef = useRef(false);
 
     useEffect(() => {
-        if (!audioRef.current || initializedRef.current) return;
+        console.log("AudioBoostController: Effect triggered");
+        if (!audioRef.current) {
+            console.warn("AudioBoostController: audioRef.current is null");
+            return;
+        }
 
-        // Try to initialize immediately if possible, or wait for interaction
-        // Web Audio API requires user interaction to start context in some browsers,
-        // but creating nodes usually works.
+        const initAudio = () => {
+             console.log("AudioBoostController: initAudio called");
+             try {
+                // Check if context already exists on the element to handle React Strict Mode / Re-mounts
+                if (audioRef.current._audioBoostContext) {
+                    console.log("AudioBoostController: Reusing existing context");
+                    audioContextRef.current = audioRef.current._audioBoostContext;
+                    sourceNodeRef.current = audioRef.current._audioBoostSource;
+                    gainNodeRef.current = audioRef.current._audioBoostGain;
+                    initializedRef.current = true;
+                    return;
+                }
 
-        try {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            audioContextRef.current = new AudioContext();
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AudioContext();
+                audioContextRef.current = ctx;
 
-            gainNodeRef.current = audioContextRef.current.createGain();
+                const gain = ctx.createGain();
+                gainNodeRef.current = gain;
 
-            // Connect to destination
-            gainNodeRef.current.connect(audioContextRef.current.destination);
+                gain.connect(ctx.destination);
 
-            // Create source from element
-            // Note: MediaElementSourceNode can only be created once per element.
-            // If the element is reused, we must reuse the source or handle error.
-            // React strict mode might cause double init.
-            try {
-                sourceNodeRef.current = audioContextRef.current.createMediaElementSource(audioRef.current);
-                sourceNodeRef.current.connect(gainNodeRef.current);
+                const source = ctx.createMediaElementSource(audioRef.current);
+                sourceNodeRef.current = source;
+                source.connect(gain);
+
+                // Attach to element for reuse
+                audioRef.current._audioBoostContext = ctx;
+                audioRef.current._audioBoostSource = source;
+                audioRef.current._audioBoostGain = gain;
+
                 initializedRef.current = true;
             } catch (e) {
-                // If already connected, we might fail here.
-                console.warn("AudioBoostController: MediaElementSource creation failed (maybe already connected):", e);
+                console.error("AudioBoostController: Setup failed", e);
             }
+        };
 
-        } catch (e) {
-            console.error("AudioBoostController: Setup failed", e);
+        if (audioRef.current) {
+            initAudio();
+        } else {
+            // Retry once after a short delay in case of ref timing issues
+            const timer = setTimeout(() => {
+                if (audioRef.current) initAudio();
+            }, 100);
+            return () => clearTimeout(timer);
         }
 
         return () => {
-            // Cleanup
-            // Closing context frees hardware resources
-            if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-                audioContextRef.current.close();
-            }
+            // Do NOT close the context here, as we are identifying it with the audio element lifetime
+            // which might persist across this component's unmount/remount (e.g. strict mode or layout changes)
         };
     }, [audioRef]);
 
     // Handle Volume Update
     useEffect(() => {
-        if (gainNodeRef.current) {
+        if (gainNodeRef.current && audioContextRef.current) {
+            // Ensure context is running if we are trying to set volume
+            if (audioContextRef.current.state === 'suspended' && isPlaying) {
+                 audioContextRef.current.resume().catch(e => console.warn("AudioContext resume failed", e));
+            }
+
             // Smooth transition
-            const currentTime = audioContextRef.current?.currentTime || 0;
+            const currentTime = audioContextRef.current.currentTime;
             try {
                 gainNodeRef.current.gain.setValueAtTime(volume, currentTime);
-            } catch (e) {
+            } catch {
                 // Fallback
                 gainNodeRef.current.gain.value = volume;
             }
         }
-    }, [volume]);
+    }, [volume, isPlaying]);
 
-    // Resume context on volume change or component mount if needed
+    // Resume context on structure change or play
     useEffect(() => {
-        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        if (audioContextRef.current && audioContextRef.current.state === 'suspended' && isPlaying) {
              audioContextRef.current.resume().catch(e => console.warn("AudioContext resume failed", e));
         }
-    }, [volume]);
+    }, [isPlaying]);
 
     return null;
 };
