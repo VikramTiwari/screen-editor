@@ -17,6 +17,7 @@ const defaultSettings = {
   cameraBorderRadius: 12,
   cameraShadow: 20,
   audioOffset: 0, // In seconds, positive means audio plays later (delayed), negative means audio plays earlier
+  micVolume: 1.0,
 };
 
 export const useEditorState = () => {
