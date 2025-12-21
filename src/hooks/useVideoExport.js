@@ -32,6 +32,16 @@ export const useVideoExport = () => {
   }) => {
     if (!screenVideo || !duration) return;
 
+    // Apply Trim Start
+    const trimStart = baseSettings.trimStart || 0;
+    const effectiveDuration = duration - trimStart;
+
+    if (effectiveDuration <= 0) {
+        console.error("Export duration is zero or negative after trim");
+        // Should probably notify user, but for now just return
+        return;
+    }
+
     setIsExporting(true);
     setProgress(0);
 
@@ -93,7 +103,15 @@ export const useVideoExport = () => {
            audioBuffers.push({
                data: data, // Float32Array
                sampleRate: audioBuffer.sampleRate,
-               offset: baseSettings.audioOffset || 0
+               // Shift audio offset by trimStart.
+               // If trimStart is 5s, we want audio at 5s (src) to be at 0s (export).
+               // audioOffset handles relative shift.
+               // If audioOffset=0, we want src 5s -> export 0s.
+               // Worker logic: index = (time - offset) * sr.
+               // At export time 0, we want index for 5s.
+               // (0 - offset) * sr = 5 * sr => offset = -5.
+               // So offset = originalOffset - trimStart.
+               offset: (baseSettings.audioOffset || 0) - trimStart
            });
            
            console.log("Export: Audio decoded.", {
@@ -160,7 +178,7 @@ export const useVideoExport = () => {
         payload: {
             canvas: offscreen,
             settings: baseSettings,
-            interactionsData,
+            interactionsData: interactionsData.map(i => ({ ...i, timestamp: i.timestamp - trimStart })),
             backgroundImage: bgBitmap,
             config: { scaleFactor },
             audioBuffers: audioBuffers // Pass decoded buffers
@@ -181,7 +199,7 @@ export const useVideoExport = () => {
     // We might play it for the user's feedback, but let's stick to video only to improve performance.
     
     videos.forEach(v => {
-        v.currentTime = 0;
+        v.currentTime = trimStart; // Start from trimStart
         v.play().catch(e => console.warn("Video play fail", e));
     });
 
@@ -190,8 +208,10 @@ export const useVideoExport = () => {
 
         // Update Progress
         const current = screenVideo.currentTime;
-        setProgress((current / duration) * 100);
+        // Progress based on effective duration
+        setProgress(((current - trimStart) / effectiveDuration) * 100);
 
+        // Stop if we reach the end of the original duration OR if the video ends
         if (current >= duration || screenVideo.ended) {
             stopExport(videos);
             if (workerRef.current) workerRef.current.postMessage({ type: 'FINISH' });
@@ -206,14 +226,21 @@ export const useVideoExport = () => {
             }
             
             if (workerRef.current) {
+                // Shift Overrides
+                const shiftedOverrides = overrides.map(o => ({
+                    ...o,
+                    start: o.start - trimStart,
+                    end: o.end - trimStart
+                }));
+
                 workerRef.current.postMessage({
                     type: 'RENDER_FRAME',
                     payload: {
                         screenBitmap,
                         cameraBitmap,
-                        timestamp: current,
+                        timestamp: current - trimStart, // Shift timestamp
                         baseSettings,
-                        overrides
+                        overrides: shiftedOverrides
                     }
                 }, [screenBitmap, ...(cameraBitmap ? [cameraBitmap] : [])]);
             } else {

@@ -169,23 +169,43 @@ const PropertiesPanel = ({
         />
         
         {isBaseSettings && (
-             <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                    <label className="text-sm text-neutral-400">Audio Offset</label>
-                    <span className="text-xs text-neutral-500 font-mono">{(settings.audioOffset || 0).toFixed(1)}s</span>
+             <div className="space-y-4">
+                <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                        <label className="text-sm text-neutral-400">Audio Offset</label>
+                        <span className="text-xs text-neutral-500 font-mono">{(settings.audioOffset || 0).toFixed(1)}s</span>
+                    </div>
+                    <input
+                        type="range"
+                        min="-5"
+                        max="5"
+                        step="0.1"
+                        value={settings.audioOffset || 0}
+                        onChange={(e) => handleChange('audioOffset', parseFloat(e.target.value))}
+                        className="w-full"
+                    />
+                    <p className="text-[10px] text-neutral-600">
+                        Positive delays audio, negative advances it.
+                    </p>
                 </div>
-                <input 
-                    type="range" 
-                    min="-5" 
-                    max="5" 
-                    step="0.1"
-                    value={settings.audioOffset || 0}
-                    onChange={(e) => handleChange('audioOffset', parseFloat(e.target.value))}
-                    className="w-full"
-                />
-                <p className="text-[10px] text-neutral-600">
-                    Positive delays audio, negative advances it.
-                </p>
+
+                <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                        <label className="text-sm text-neutral-400">Trim Start (Export Only)</label>
+                        <span className="text-xs text-neutral-500 font-mono">{(settings.trimStart || 0).toFixed(1)}s</span>
+                    </div>
+                    <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={settings.trimStart || 0}
+                        onChange={(e) => handleChange('trimStart', Math.max(0, parseFloat(e.target.value) || 0))}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-white"
+                    />
+                    <p className="text-[10px] text-neutral-600">
+                        Removes the first N seconds from the final video export.
+                    </p>
+                </div>
              </div>
         )}
       </div>
