@@ -239,6 +239,14 @@ self.onmessage = async (e) => {
         if (count > 0) {
             const chunkData = currentAudioBuffer.data.slice(start, end);
             
+            // Apply Volume Boost
+            const volume = baseSettings.micVolume !== undefined ? baseSettings.micVolume : 1.0;
+            if (volume !== 1.0) {
+                for (let i = 0; i < chunkData.length; i++) {
+                    chunkData[i] = Math.max(-1, Math.min(1, chunkData[i] * volume));
+                }
+            }
+
             // Timestamp for AudioSample: Start timestamp in seconds
             // Must account for the buffer's start time (offset)
             let chunkTime = offset + (start / sr); 

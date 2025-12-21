@@ -206,6 +206,20 @@ const PropertiesPanel = ({
                         Removes the first N seconds from the final video export.
                     </p>
                 </div>
+
+                <div className="flex justify-between items-center pt-2">
+                    <label className="text-sm text-neutral-400">Mic Volume</label>
+                    <span className="text-xs text-neutral-500 font-mono">{(settings.micVolume || 1).toFixed(1)}x</span>
+                </div>
+                <input
+                    type="range"
+                    min="0"
+                    max="50"
+                    step="0.1"
+                    value={settings.micVolume || 1}
+                    onChange={(e) => handleChange('micVolume', parseFloat(e.target.value))}
+                    className="w-full"
+                />
              </div>
         )}
       </div>

@@ -9,6 +9,7 @@ import { useVideoExport } from '../hooks/useVideoExport';
 import SettingsModal from './SettingsModal';
 import { transcribeAudio } from '../services/transcriptionService';
 import { useAutoSave } from '../hooks/useAutoSave';
+import AudioBoostController from './AudioBoostController';
 
 const DEFAULT_SETTINGS = {
   showScreen: true,
@@ -382,6 +383,9 @@ const EditorLayout = () => {
               onEnded={() => togglePlay(isExporting)}
               className="hidden"
           />
+
+          {/* Audio Boost (Preview) */}
+          <AudioBoostController audioRef={audioRef} volume={baseSettings.micVolume} isPlaying={isPlaying} />
 
           {viewMode === 'studio' && (
               <>

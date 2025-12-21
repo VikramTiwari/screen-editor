@@ -18,6 +18,7 @@ const defaultSettings = {
   cameraShadow: 20,
   audioOffset: 0, // In seconds, positive means audio plays later (delayed), negative means audio plays earlier
   trimStart: 0, // In seconds, how much to trim from the start of the final video
+  micVolume: 1.0,
 };
 
 export const useEditorState = () => {
